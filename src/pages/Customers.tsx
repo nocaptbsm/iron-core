@@ -1,0 +1,220 @@
+import { useState } from "react";
+import { Search, Phone, Printer, Trash2, ArrowUpCircle, MoreHorizontal } from "lucide-react";
+import { differenceInCalendarMonths, differenceInDays } from "date-fns";
+import { motion } from "framer-motion";
+import DashboardLayout from "@/components/DashboardLayout";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useGym } from "@/context/GymContext";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Customer } from "@/lib/mockData";
+
+const plans: Customer["subscriptionPlan"][] = ["1 month", "3 months", "6 months", "12 months"];
+
+const Customers = () => {
+  const { customers, deleteCustomer, upgradeCustomer } = useGym();
+  const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
+  const [upgradeTarget, setUpgradeTarget] = useState<Customer | null>(null);
+  const [photoTarget, setPhotoTarget] = useState<Customer | null>(null);
+
+  const filtered = customers.filter(
+    (c) =>
+      c.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      c.phone.includes(search)
+  );
+
+  const handlePrint = () => window.print();
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Customers</h1>
+            <p className="text-muted-foreground text-sm mt-1">Manage your gym members</p>
+          </div>
+          <Button variant="outline" size="sm" className="gap-2 print:hidden" onClick={handlePrint}>
+            <Printer className="h-4 w-4" />
+            Print PDF
+          </Button>
+        </div>
+
+        <div className="relative max-w-md print:hidden">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search by name or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 bg-card border-border" />
+        </div>
+
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-secondary/30">
+                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer</th>
+                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Phone</th>
+                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Plan</th>
+                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Expires</th>
+                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="text-right p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider print:hidden">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((customer, i) => (
+                  <motion.tr
+                    key={customer.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
+                  >
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        {customer.photo ? (
+                          <img src={customer.photo} alt={customer.fullName} className="h-9 w-9 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-semibold text-primary">
+                              {customer.fullName.split(' ').map(n => n[0]).join('')}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <p
+                            className={`text-sm font-medium text-foreground ${customer.photo ? "cursor-pointer hover:underline" : ""}`}
+                            onClick={() => customer.photo && setPhotoTarget(customer)}
+                          >
+                            {customer.fullName}
+                          </p>
+                          <p className="text-xs text-muted-foreground sm:hidden">{customer.phone}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 hidden sm:table-cell">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Phone className="h-3.5 w-3.5" />
+                        {customer.phone}
+                      </div>
+                    </td>
+                    <td className="p-4 hidden md:table-cell text-sm text-foreground">
+                      {customer.subscriptionPlan}
+                      <span className="block text-xs text-muted-foreground">
+                        {(() => {
+                          const end = new Date(customer.subscriptionEnd);
+                          const now = new Date();
+                          const days = differenceInDays(end, now);
+                          if (days < 0) return "Expired";
+                          const months = differenceInCalendarMonths(end, now);
+                          if (months > 0) return `${months}mo left`;
+                          return `${days}d left`;
+                        })()}
+                      </span>
+                    </td>
+                    <td className="p-4 hidden sm:table-cell text-sm text-muted-foreground">{customer.subscriptionEnd}</td>
+                    <td className="p-4">
+                      <Badge
+                        className={
+                          customer.status === 'active' ? 'bg-primary/10 text-primary border-primary/20' :
+                          customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20' :
+                          'bg-destructive/10 text-destructive border-destructive/20'
+                        }
+                      >
+                        {customer.status}
+                      </Badge>
+                    </td>
+                    <td className="p-4 text-right print:hidden">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setUpgradeTarget(customer)} className="gap-2">
+                            <ArrowUpCircle className="h-4 w-4" /> Upgrade Plan
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDeleteTarget(customer)} className="gap-2 text-destructive focus:text-destructive">
+                            <Trash2 className="h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filtered.length === 0 && (
+            <div className="p-12 text-center text-muted-foreground">
+              <p className="text-sm">No customers found</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.fullName}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { if (deleteTarget) { deleteCustomer(deleteTarget.id); setDeleteTarget(null); } }}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Upgrade Dialog */}
+      <Dialog open={!!upgradeTarget} onOpenChange={(open) => { if (!open) setUpgradeTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Upgrade {upgradeTarget?.fullName}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-2">
+            {plans.map((plan) => (
+              <Button
+                key={plan}
+                variant={upgradeTarget?.subscriptionPlan === plan ? "default" : "outline"}
+                className="justify-start"
+                onClick={() => {
+                  if (upgradeTarget) {
+                    upgradeCustomer(upgradeTarget.id, plan);
+                    setUpgradeTarget(null);
+                  }
+                }}
+              >
+                {plan} {upgradeTarget?.subscriptionPlan === plan && "(current)"}
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Photo Dialog */}
+      <Dialog open={!!photoTarget} onOpenChange={(open) => { if (!open) setPhotoTarget(null); }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>{photoTarget?.fullName}</DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center">
+            {photoTarget?.photo ? (
+              <img src={photoTarget.photo} alt={photoTarget.fullName} className="w-48 h-48 rounded-xl object-cover border border-border" />
+            ) : (
+              <p className="text-sm text-muted-foreground">No photo available</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </DashboardLayout>
+  );
+};
+
+export default Customers;
