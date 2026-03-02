@@ -37,10 +37,10 @@ const Reminders = () => {
 
   const filledMessage = selectedCustomer
     ? defaultTemplate
-        .replace("{name}", selectedCustomer.fullName)
-        .replace("{status}", selectedCustomer.status)
-        .replace("{plan}", selectedCustomer.subscriptionPlan)
-        .replace("{endDate}", selectedCustomer.subscriptionEnd)
+      .replace("{name}", selectedCustomer.fullName)
+      .replace("{status}", selectedCustomer.status)
+      .replace("{plan}", selectedCustomer.subscriptionPlan)
+      .replace("{endDate}", selectedCustomer.subscriptionEnd)
     : "";
 
   const filteredCustomers = customers.filter((c) =>
@@ -60,8 +60,19 @@ const Reminders = () => {
     setSelectOpen(true);
   };
 
-  const sendQuickReminder = (name: string) => {
-    toast.success(`WhatsApp reminder sent to ${name}`);
+  const getWhatsAppLink = (c: typeof customers[0]) => {
+    const message = defaultTemplate
+      .replace("{name}", c.fullName)
+      .replace("{status}", c.status)
+      .replace("{plan}", c.subscriptionPlan)
+      .replace("{endDate}", c.subscriptionEnd);
+    const phone = c.phone.replace(/\D/g, "");
+    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  };
+
+  const sendQuickReminder = (c: typeof customers[0]) => {
+    window.open(getWhatsAppLink(c), "_blank");
+    toast.success(`WhatsApp reminder opened for ${c.fullName}`);
   };
 
   return (
@@ -99,7 +110,7 @@ const Reminders = () => {
                       <p className="text-sm font-medium text-foreground">{c.fullName}</p>
                       <p className="text-xs text-muted-foreground">{c.phone} · Expires {c.subscriptionEnd}</p>
                     </div>
-                    <Button size="sm" variant="outline" className="gap-1.5 text-xs border-warning/30 text-warning hover:bg-warning/10" onClick={() => sendQuickReminder(c.fullName)}>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs border-warning/30 text-warning hover:bg-warning/10" onClick={() => sendQuickReminder(c)}>
                       <Send className="h-3 w-3" /> Send
                     </Button>
                   </div>
@@ -128,7 +139,7 @@ const Reminders = () => {
                       <p className="text-sm font-medium text-foreground">{c.fullName}</p>
                       <p className="text-xs text-muted-foreground">{c.phone} · Expired {c.subscriptionEnd}</p>
                     </div>
-                    <Button size="sm" variant="outline" className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => sendQuickReminder(c.fullName)}>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => sendQuickReminder(c)}>
                       <Send className="h-3 w-3" /> Send
                     </Button>
                   </div>
@@ -174,11 +185,10 @@ const Reminders = () => {
                         <p className="text-sm font-medium text-foreground">{c.fullName}</p>
                         <p className="text-xs text-muted-foreground">{c.phone}</p>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        c.status === "active" ? "bg-primary/10 text-primary" :
-                        c.status === "expiring" ? "bg-warning/10 text-warning" :
-                        "bg-destructive/10 text-destructive"
-                      }`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === "active" ? "bg-primary/10 text-primary" :
+                          c.status === "expiring" ? "bg-warning/10 text-warning" :
+                            "bg-destructive/10 text-destructive"
+                        }`}>
                         {c.status}
                       </span>
                     </button>
