@@ -3,11 +3,12 @@ export interface Customer {
   fullName: string;
   phone: string;
   joiningDate: string;
-  subscriptionPlan: '1 month' | '3 months' | '6 months' | '12 months';
+  subscriptionPlan: '1 month' | '3 months' | '6 months' | '12 months' | 'others';
   subscriptionStart: string;
   subscriptionEnd: string;
   status: 'active' | 'expiring' | 'expired';
   photo?: string;
+  address?: string;
 }
 
 export interface Payment {

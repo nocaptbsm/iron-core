@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { format, addMonths } from "date-fns";
+import { format, addMonths, addDays } from "date-fns";
 import { useGym } from "@/context/GymContext";
 import { Camera, X, SwitchCamera } from "lucide-react";
 import { Customer } from "@/lib/mockData";
@@ -26,8 +26,10 @@ const AddCustomer = () => {
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
+    address: "",
     joiningDate: format(new Date(), "yyyy-MM-dd"),
     plan: "" as string,
+    customDays: "",
   });
   const [photo, setPhoto] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -81,15 +83,23 @@ const AddCustomer = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName || !form.phone || !form.plan) {
-      toast.error("Please fill all fields");
+    if (!form.fullName || !form.phone || !form.plan || (form.plan === "others" && !form.customDays)) {
+      toast.error("Please fill all required fields");
       return;
     }
-    const months = planDurations[form.plan] || 1;
-    const endDate = format(addMonths(new Date(form.joiningDate), months), "yyyy-MM-dd");
+
+    let endDate;
+    if (form.plan === "others") {
+      endDate = format(addDays(new Date(form.joiningDate), parseInt(form.customDays, 10) || 1), "yyyy-MM-dd");
+    } else {
+      const months = planDurations[form.plan] || 1;
+      endDate = format(addMonths(new Date(form.joiningDate), months), "yyyy-MM-dd");
+    }
+
     await addCustomer({
       fullName: form.fullName,
       phone: form.phone,
+      address: form.address,
       joiningDate: form.joiningDate,
       subscriptionPlan: form.plan as Customer["subscriptionPlan"],
       subscriptionStart: form.joiningDate,
@@ -158,6 +168,10 @@ const AddCustomer = () => {
                 />
               </div>
             </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="address">Address (Optional)</Label>
+              <Input id="address" placeholder="Enter full address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="bg-secondary/50 border-border" />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="joiningDate">Joining Date</Label>
               <Input id="joiningDate" type="date" value={form.joiningDate} onChange={(e) => setForm({ ...form, joiningDate: e.target.value })} className="bg-secondary/50 border-border" />
@@ -167,12 +181,26 @@ const AddCustomer = () => {
               <Select value={form.plan} onValueChange={(v) => setForm({ ...form, plan: v })}>
                 <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Select plan" /></SelectTrigger>
                 <SelectContent>
-                  {["1 month", "3 months", "6 months", "12 months"].map((p) => (
+                  {["1 month", "3 months", "6 months", "12 months", "others"].map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            {form.plan === "others" && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="customDays">Number of Days</Label>
+                <Input
+                  id="customDays"
+                  type="number"
+                  min="1"
+                  placeholder="e.g., 45"
+                  value={form.customDays}
+                  onChange={(e) => setForm({ ...form, customDays: e.target.value })}
+                  className="bg-secondary/50 border-border"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">
