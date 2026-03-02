@@ -21,7 +21,7 @@ End Date: {endDate}
 
 Please renew your subscription to continue your fitness journey! 💪
 
-— GymFlow`;
+— IronCore`;
 
 const Reminders = () => {
   const { customers } = useGym();
@@ -186,8 +186,8 @@ const Reminders = () => {
                         <p className="text-xs text-muted-foreground">{c.phone}</p>
                       </div>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === "active" ? "bg-primary/10 text-primary" :
-                          c.status === "expiring" ? "bg-warning/10 text-warning" :
-                            "bg-destructive/10 text-destructive"
+                        c.status === "expiring" ? "bg-warning/10 text-warning" :
+                          "bg-destructive/10 text-destructive"
                         }`}>
                         {c.status}
                       </span>

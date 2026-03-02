@@ -42,12 +42,12 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-border">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Dumbbell className="h-5 w-5 text-primary-foreground" />
+          <div className="h-9 w-9 rounded-lg overflow-hidden flex items-center justify-center shrink-0 border border-border bg-black/20">
+            <img src="/ironcore-logo.jpg" alt="IronCore Logo" className="w-full h-full object-cover" />
           </div>
           {!collapsed && (
             <div>
-              <h1 className="font-display text-lg font-bold tracking-tight text-foreground">GymFlow</h1>
+              <h1 className="font-display text-lg font-bold tracking-tight text-foreground">IronCore</h1>
               <p className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase">Management</p>
             </div>
           )}
