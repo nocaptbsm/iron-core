@@ -141,7 +141,22 @@ const AddCustomer = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" placeholder="+91 XXXXX XXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="bg-secondary/50 border-border" />
+              <div className="flex">
+                <div className="flex items-center justify-center bg-secondary/80 border border-border border-r-0 rounded-l-md px-3 text-sm text-muted-foreground">
+                  +91
+                </div>
+                <Input
+                  id="phone"
+                  placeholder="XXXXX XXXXX"
+                  value={form.phone.replace(/^\+91\s*/, "")}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    setForm({ ...form, phone: val ? `+91 ${val}` : "" });
+                  }}
+                  className="bg-secondary/50 border-border rounded-l-none"
+                  maxLength={10}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="joiningDate">Joining Date</Label>
