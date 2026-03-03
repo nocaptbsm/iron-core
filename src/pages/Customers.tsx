@@ -34,57 +34,34 @@ const Customers = () => {
 
   const handlePrint = () => window.print();
 
-  const handleGenerateReceipt = () => {
+  const handleSendToWhatsApp = () => {
     if (!receiptTarget) return;
 
-    const doc = new jsPDF();
     const date = new Date().toLocaleDateString();
+    const cleanPhone = receiptTarget.phone.replace(/\D/g, "");
 
-    // Header
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "bold");
-    doc.text(gymName || "GYM RECEIPT", 105, 20, { align: "center" });
+    // Construct the message
+    const message = `
+*${gymName || "GYM RECEIPT"}*
+📅 Date: ${date}
+🧾 Receipt ID: #${Math.floor(Math.random() * 10000)}
+-------------------------
+*Customer Details:*
+👤 Name: ${receiptTarget.fullName}
+📞 Phone: ${receiptTarget.phone}
+-------------------------
+*Membership Details:*
+🏋️ Plan: ${receiptTarget.subscriptionPlan}
+⏰ Expires: ${receiptTarget.subscriptionEnd}
+🟢 Status: ${receiptTarget.status.toUpperCase()}
+-------------------------
+_Thank you for your business!_
+    `.trim();
 
-    // Subheader
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Date: ${date}`, 15, 35);
-    doc.text(`Receipt ID: #${Math.floor(Math.random() * 10000)}`, 15, 42);
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 
-    // Customer details
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Customer Details:", 15, 55);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Name: ${receiptTarget.fullName}`, 15, 62);
-    doc.text(`Phone: ${receiptTarget.phone}`, 15, 69);
-    doc.text(`Joined: N/A`, 15, 76);
-
-    // Table data
-    const tableData = [
-      [
-        "Gym Membership",
-        receiptTarget.subscriptionPlan,
-        receiptTarget.subscriptionEnd,
-        receiptTarget.status.toUpperCase(),
-      ],
-    ];
-
-    autoTable(doc, {
-      startY: 85,
-      head: [["Description", "Plan Duration", "Expiry Date", "Status"]],
-      body: tableData,
-      theme: "striped",
-      headStyles: { fillColor: [41, 128, 185] },
-    });
-
-    // Footer
-    const finalY = (doc as any).lastAutoTable.finalY || 120;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "italic");
-    doc.text("Thank you for your business!", 105, finalY + 20, { align: "center" });
-
-    doc.save(`${receiptTarget.fullName.replace(/\s+/g, "_")}_Receipt.pdf`);
+    window.open(whatsappUrl, "_blank");
 
     setReceiptTarget(null);
     setGymName("");
@@ -304,8 +281,8 @@ const Customers = () => {
             <Button variant="outline" onClick={() => { setReceiptTarget(null); setGymName(""); }}>
               Cancel
             </Button>
-            <Button onClick={handleGenerateReceipt} className="gap-2">
-              <FileText className="h-4 w-4" /> Download PDF
+            <Button onClick={handleSendToWhatsApp} className="gap-2 bg-[#25D366] text-white hover:bg-[#128C7E]">
+              <FileText className="h-4 w-4" /> Send via WhatsApp
             </Button>
           </DialogFooter>
         </DialogContent>
