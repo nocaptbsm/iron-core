@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Phone, Printer, Trash2, ArrowUpCircle, MoreHorizontal } from "lucide-react";
+import { Search, Phone, Printer, Trash2, ArrowUpCircle, MoreHorizontal, FileText } from "lucide-react";
 import { differenceInCalendarMonths, differenceInDays } from "date-fns";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button";
 import { useGym } from "@/context/GymContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Customer } from "@/lib/mockData";
 
 const plans: Customer["subscriptionPlan"][] = ["1 month", "3 months", "6 months", "12 months"];
@@ -20,6 +23,8 @@ const Customers = () => {
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [upgradeTarget, setUpgradeTarget] = useState<Customer | null>(null);
   const [photoTarget, setPhotoTarget] = useState<Customer | null>(null);
+  const [receiptTarget, setReceiptTarget] = useState<Customer | null>(null);
+  const [gymName, setGymName] = useState("");
 
   const filtered = customers.filter(
     (c) =>
@@ -28,6 +33,62 @@ const Customers = () => {
   );
 
   const handlePrint = () => window.print();
+
+  const handleGenerateReceipt = () => {
+    if (!receiptTarget) return;
+
+    const doc = new jsPDF();
+    const date = new Date().toLocaleDateString();
+
+    // Header
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text(gymName || "GYM RECEIPT", 105, 20, { align: "center" });
+
+    // Subheader
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Date: ${date}`, 15, 35);
+    doc.text(`Receipt ID: #${Math.floor(Math.random() * 10000)}`, 15, 42);
+
+    // Customer details
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Customer Details:", 15, 55);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Name: ${receiptTarget.fullName}`, 15, 62);
+    doc.text(`Phone: ${receiptTarget.phone}`, 15, 69);
+    doc.text(`Joined: N/A`, 15, 76);
+
+    // Table data
+    const tableData = [
+      [
+        "Gym Membership",
+        receiptTarget.subscriptionPlan,
+        receiptTarget.subscriptionEnd,
+        receiptTarget.status.toUpperCase(),
+      ],
+    ];
+
+    autoTable(doc, {
+      startY: 85,
+      head: [["Description", "Plan Duration", "Expiry Date", "Status"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    // Footer
+    const finalY = (doc as any).lastAutoTable.finalY || 120;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text("Thank you for your business!", 105, finalY + 20, { align: "center" });
+
+    doc.save(`${receiptTarget.fullName.replace(/\s+/g, "_")}_Receipt.pdf`);
+
+    setReceiptTarget(null);
+    setGymName("");
+  };
 
   return (
     <DashboardLayout>
@@ -117,8 +178,8 @@ const Customers = () => {
                       <Badge
                         className={
                           customer.status === 'active' ? 'bg-primary/10 text-primary border-primary/20' :
-                          customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20' :
-                          'bg-destructive/10 text-destructive border-destructive/20'
+                            customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20' :
+                              'bg-destructive/10 text-destructive border-destructive/20'
                         }
                       >
                         {customer.status}
@@ -132,6 +193,9 @@ const Customers = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setReceiptTarget(customer)} className="gap-2">
+                            <FileText className="h-4 w-4" /> E-Receipt
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setUpgradeTarget(customer)} className="gap-2">
                             <ArrowUpCircle className="h-4 w-4" /> Upgrade Plan
                           </DropdownMenuItem>
@@ -211,6 +275,39 @@ const Customers = () => {
               <p className="text-sm text-muted-foreground">No photo available</p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* E-Receipt Dialog */}
+      <Dialog open={!!receiptTarget} onOpenChange={(open) => { if (!open) setReceiptTarget(null); setGymName(""); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Generate E-Receipt</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="gymName">Gym Name (Optional)</Label>
+              <Input
+                id="gymName"
+                placeholder="Enter your gym name..."
+                value={gymName}
+                onChange={(e) => setGymName(e.target.value)}
+              />
+            </div>
+            <div className="text-sm text-muted-foreground border p-3 rounded-md bg-secondary/20">
+              <p className="font-medium text-foreground mb-1">Receipt for: {receiptTarget?.fullName}</p>
+              <p>Plan: {receiptTarget?.subscriptionPlan}</p>
+              <p>Expires: {receiptTarget?.subscriptionEnd}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setReceiptTarget(null); setGymName(""); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleGenerateReceipt} className="gap-2">
+              <FileText className="h-4 w-4" /> Download PDF
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>
