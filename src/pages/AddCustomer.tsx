@@ -30,6 +30,7 @@ const AddCustomer = () => {
     joiningDate: format(new Date(), "yyyy-MM-dd"),
     plan: "" as string,
     customDays: "",
+    gender: "",
   });
   const [photo, setPhoto] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -83,7 +84,7 @@ const AddCustomer = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName || !form.phone || !form.plan || (form.plan === "others" && !form.customDays)) {
+    if (!form.fullName || !form.phone || !form.plan || !form.gender || (form.plan === "others" && !form.customDays)) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -105,6 +106,7 @@ const AddCustomer = () => {
       subscriptionStart: form.joiningDate,
       subscriptionEnd: endDate,
       photo: photo || undefined,
+      gender: form.gender,
     });
     toast.success(`${form.fullName} registered successfully!`);
     navigate("/customers");
@@ -175,6 +177,17 @@ const AddCustomer = () => {
             <div className="space-y-2">
               <Label htmlFor="joiningDate">Joining Date</Label>
               <Input id="joiningDate" type="date" value={form.joiningDate} onChange={(e) => setForm({ ...form, joiningDate: e.target.value })} className="bg-secondary/50 border-border" />
+            </div>
+            <div className="space-y-2">
+              <Label>Gender</Label>
+              <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v })}>
+                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Select gender" /></SelectTrigger>
+                <SelectContent>
+                  {["Male", "Female", "Other"].map((g) => (
+                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Subscription Plan</Label>
