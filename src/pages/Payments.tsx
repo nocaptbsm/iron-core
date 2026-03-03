@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { MoreHorizontal, FileText } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useGym } from "@/context/GymContext";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { Payment } from "@/lib/mockData";
 
 const Payments = () => {
   const { customers, payments, addPayment } = useGym();
@@ -19,6 +25,8 @@ const Payments = () => {
     mode: "",
     paymentDate: format(new Date(), "yyyy-MM-dd"),
   });
+  const [receiptTarget, setReceiptTarget] = useState<Payment | null>(null);
+  const [gymName, setGymName] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +45,87 @@ const Payments = () => {
     });
     toast.success(`Payment of ₹${form.amount} registered for ${customer?.fullName}`);
     setForm({ customerId: "", amount: "", mode: "", paymentDate: format(new Date(), "yyyy-MM-dd") });
+  };
+
+  const handleSendToWhatsApp = async () => {
+    if (!receiptTarget) return;
+
+    const customer = customers.find((c) => c.id === receiptTarget.customerId);
+    const phone = customer?.phone || "";
+
+    const doc = new jsPDF();
+    const date = new Date().toLocaleDateString();
+
+    // Header
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text(gymName || "GYM RECEIPT", 105, 20, { align: "center" });
+
+    // Subheader
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Date: ${date}`, 15, 35);
+    doc.text(`Receipt ID: #${Math.floor(Math.random() * 10000)}`, 15, 42);
+
+    // Customer details
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Customer Details:", 15, 55);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Name: ${receiptTarget.customerName}`, 15, 62);
+    if (phone) doc.text(`Phone: ${phone}`, 15, 69);
+
+    // Table data
+    const tableData = [
+      [
+        "Payment Processed",
+        receiptTarget.plan,
+        receiptTarget.paymentDate,
+        `Rs. ${receiptTarget.amount.toLocaleString()}`,
+        receiptTarget.mode
+      ],
+    ];
+
+    autoTable(doc, {
+      startY: phone ? 85 : 75,
+      head: [["Description", "Plan", "Payment Date", "Amount", "Mode"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    // Footer
+    const finalY = (doc as any).lastAutoTable.finalY || 120;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text("Thank you for your business!", 105, finalY + 20, { align: "center" });
+
+    const fileName = `${receiptTarget.customerName.replace(/\s+/g, "_")}_PaymentReceipt.pdf`;
+    const pdfBlob = doc.output('blob');
+    const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Gym Receipt',
+          text: `Hi ${receiptTarget.customerName}, here is your payment receipt!`,
+        });
+      } else {
+        doc.save(fileName);
+        if (phone) {
+          const cleanPhone = phone.replace(/\D/g, "");
+          const fallbackText = encodeURIComponent(`Hi ${receiptTarget.customerName},\n\nI have just downloaded your gym receipt. Please find the attached PDF!`);
+          window.open(`https://wa.me/${cleanPhone}?text=${fallbackText}`, "_blank");
+        }
+      }
+    } catch (error) {
+      console.error('Error sharing receipt:', error);
+      doc.save(fileName);
+    }
+
+    setReceiptTarget(null);
+    setGymName("");
   };
 
   return (
@@ -114,6 +203,7 @@ const Payments = () => {
                     <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Plan</th>
                     <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
                     <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Mode</th>
+                    <th className="text-right p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider print:hidden">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -132,6 +222,20 @@ const Payments = () => {
                       <td className="p-4 hidden sm:table-cell">
                         <Badge variant="outline" className="text-xs">{p.mode}</Badge>
                       </td>
+                      <td className="p-4 text-right print:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setReceiptTarget(p)} className="gap-2">
+                              <FileText className="h-4 w-4" /> E-Bill (PDF)
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
                     </motion.tr>
                   ))}
                 </tbody>
@@ -145,6 +249,40 @@ const Payments = () => {
           </motion.div>
         )}
       </div>
+
+      {/* E-Receipt Dialog */}
+      <Dialog open={!!receiptTarget} onOpenChange={(open) => { if (!open) setReceiptTarget(null); setGymName(""); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Generate E-Bill</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="gymName">Gym Name (Optional)</Label>
+              <Input
+                id="gymName"
+                placeholder="Enter your gym name..."
+                value={gymName}
+                onChange={(e) => setGymName(e.target.value)}
+              />
+            </div>
+            <div className="text-sm text-muted-foreground border p-3 rounded-md bg-secondary/20">
+              <p className="font-medium text-foreground mb-1">Receipt for: {receiptTarget?.customerName}</p>
+              <p>Amount: ₹{receiptTarget?.amount?.toLocaleString()}</p>
+              <p>Plan: {receiptTarget?.plan}</p>
+              <p>Date: {receiptTarget?.paymentDate}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setReceiptTarget(null); setGymName(""); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendToWhatsApp} className="gap-2 bg-[#25D366] text-white hover:bg-[#128C7E]">
+              <FileText className="h-4 w-4" /> Share PDF to WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
