@@ -14,8 +14,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <header className="h-14 flex items-center border-b border-border px-4 lg:px-6 backdrop-blur-sm bg-background/80 sticky top-0 z-10">
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
             <div className="ml-auto flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-xs font-semibold text-primary">GF</span>
+              <div className="h-8 w-8 rounded-full overflow-hidden border border-primary/20 flex items-center justify-center bg-primary/10">
+                <img src="/ironcore-logo.jpg" alt="Logo" className="h-full w-full object-cover" />
               </div>
             </div>
           </header>
