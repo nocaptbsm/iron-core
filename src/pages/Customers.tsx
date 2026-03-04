@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { toast } from "sonner";
 import { Customer } from "@/lib/mockData";
 
 const plans: Customer["subscriptionPlan"][] = ["1 month", "3 months", "6 months", "12 months"];
@@ -37,76 +38,37 @@ const Customers = () => {
   const handleSendToWhatsApp = async () => {
     if (!receiptTarget) return;
 
-    const doc = new jsPDF();
+    const gym = gymName || "GYM";
     const date = new Date().toLocaleDateString();
 
-    // Header
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "bold");
-    doc.text(gymName || "GYM RECEIPT", 105, 20, { align: "center" });
+    // Create text receipt
+    const message = `
+*${gym} - E-Receipt*
+Date: ${date}
 
-    // Subheader
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Date: ${date}`, 15, 35);
-    doc.text(`Receipt ID: #${Math.floor(Math.random() * 10000)}`, 15, 42);
+*Customer Details:*
+Name: ${receiptTarget.fullName}
+Phone: ${receiptTarget.phone}
 
-    // Customer details
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Customer Details:", 15, 55);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Name: ${receiptTarget.fullName}`, 15, 62);
-    doc.text(`Phone: ${receiptTarget.phone}`, 15, 69);
-    doc.text(`Joined: N/A`, 15, 76);
+*Membership Info:*
+Plan: ${receiptTarget.subscriptionPlan}
+Status: ${receiptTarget.status.toUpperCase()}
+Expires On: ${receiptTarget.subscriptionEnd}
 
-    // Table data
-    const tableData = [
-      [
-        "Gym Membership",
-        receiptTarget.subscriptionPlan,
-        receiptTarget.subscriptionEnd,
-        receiptTarget.status.toUpperCase(),
-      ],
-    ];
+Thank you for your business!
+    `.trim();
 
-    autoTable(doc, {
-      startY: 85,
-      head: [["Description", "Plan Duration", "Expiry Date", "Status"]],
-      body: tableData,
-      theme: "striped",
-      headStyles: { fillColor: [41, 128, 185] },
-    });
+    // Clean phone number (remove any non-digits)
+    const cleanPhone = receiptTarget.phone.replace(/\\D/g, "");
 
-    // Footer
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const finalY = (doc as any).lastAutoTable.finalY || 120;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "italic");
-    doc.text("Thank you for your business!", 105, finalY + 20, { align: "center" });
-
-    const fileName = `${receiptTarget.fullName.replace(/\s+/g, "_")}_Receipt.pdf`;
-    const pdfBlob = doc.output('blob');
-    const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-
-    try {
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Gym Receipt',
-          text: `Hi ${receiptTarget.fullName}, here is your gym receipt!`,
-        });
-      } else {
-        // Fallback for browsers that don't support file sharing (e.g., Desktop Chrome)
-        doc.save(fileName);
-        const cleanPhone = receiptTarget.phone.replace(/\D/g, "");
-        const fallbackText = encodeURIComponent(`Hi ${receiptTarget.fullName},\n\nI have just downloaded your gym receipt. Please find the attached PDF!`);
-        window.open(`https://wa.me/${cleanPhone}?text=${fallbackText}`, "_blank");
-      }
-    } catch (error) {
-      console.error('Error sharing receipt:', error);
-      // Fallback if sharing is aborted or fails
-      doc.save(fileName);
+    // Check if phone number is valid enough to open WhatsApp
+    if (cleanPhone.length >= 10) {
+      const encodedMessage = encodeURIComponent(message);
+      // Use wa.me link to open WhatsApp directly with prefilled text
+      window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, "_blank");
+      toast.success("Opened WhatsApp to send text receipt");
+    } else {
+      toast.error("Invalid phone number format. Could not open WhatsApp.");
     }
 
     setReceiptTarget(null);
