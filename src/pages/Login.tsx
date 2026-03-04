@@ -51,9 +51,9 @@ const Login = () => {
                     <motion.div
                         initial={{ scale: 0.9 }}
                         animate={{ scale: 1 }}
-                        className="w-16 h-16 bg-gradient-to-br from-primary to-blue-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-primary/20"
+                        className="w-20 h-20 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden border border-border bg-black/20"
                     >
-                        <span className="text-2xl font-black text-white">IC</span>
+                        <img src="/logo.png" alt="IronCore Logo" className="w-full h-full object-cover" />
                     </motion.div>
                     <h1 className="text-4xl font-display font-black tracking-tight text-white mb-2">
                         Iron<span className="text-primary">Core</span>
