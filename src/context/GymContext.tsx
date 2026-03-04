@@ -11,11 +11,6 @@ interface GymContextType {
   deleteCustomer: (id: string) => Promise<void>;
   upgradeCustomer: (id: string, plan: Customer["subscriptionPlan"]) => Promise<void>;
   getStats: () => { total: number; active: number; expiring: number; expired: number; revenue: number };
-  isLoggedIn: boolean;
-  isAdmin: boolean;
-  loginAdmin: () => void;
-  loginCustomer: (id: string, pass: string) => Promise<boolean>;
-  logout: () => void;
   loading: boolean;
 }
 
@@ -67,57 +62,6 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    // Check initial auth state
-    const adminAuth = window.localStorage.getItem("gym_admin_auth");
-    const customerAuth = window.localStorage.getItem("gym_customer_auth");
-
-    if (adminAuth === "true") {
-      setIsLoggedIn(true);
-      setIsAdmin(true);
-    } else if (customerAuth) {
-      setIsLoggedIn(true);
-      setIsAdmin(false);
-    }
-  }, []);
-
-  const loginAdmin = () => {
-    setIsLoggedIn(true);
-    setIsAdmin(true);
-    window.localStorage.setItem("gym_admin_auth", "true");
-  };
-
-  const loginCustomer = async (loginId: string, pass: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("customer_credentials")
-        .select("customer_id")
-        .eq("login_id", loginId)
-        .eq("password", pass)
-        .single();
-
-      if (error || !data) {
-        return false;
-      }
-
-      setIsLoggedIn(true);
-      setIsAdmin(false);
-      window.localStorage.setItem("gym_customer_auth", data.customer_id);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const logout = () => {
-    setIsLoggedIn(false);
-    setIsAdmin(false);
-    window.localStorage.removeItem("gym_admin_auth");
-    window.localStorage.removeItem("gym_customer_auth");
-  };
 
   const fetchSupabaseData = async () => {
     try {
@@ -293,23 +237,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <GymContext.Provider
-      value={{
-        customers,
-        payments,
-        addCustomer,
-        addPayment,
-        deleteCustomer,
-        upgradeCustomer,
-        getStats,
-        isLoggedIn,
-        isAdmin,
-        loginAdmin,
-        loginCustomer,
-        logout,
-        loading
-      }}
-    >
+    <GymContext.Provider value={{ customers, payments, addCustomer, addPayment, deleteCustomer, upgradeCustomer, getStats, loading }}>
       {children}
     </GymContext.Provider>
   );
