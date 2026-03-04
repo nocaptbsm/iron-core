@@ -3,14 +3,18 @@ import { Customer, Payment } from "@/lib/mockData";
 import { differenceInDays, addMonths, format } from "date-fns";
 import { supabase } from "@/lib/supabase";
 
+import { Session } from "@supabase/supabase-js";
+
 interface GymContextType {
   customers: Customer[];
   payments: Payment[];
+  session: Session | null;
   addCustomer: (customer: Omit<Customer, "id" | "status">) => Promise<void>;
   addPayment: (payment: Omit<Payment, "id">) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
   upgradeCustomer: (id: string, plan: Customer["subscriptionPlan"]) => Promise<void>;
   getStats: () => { total: number; active: number; expiring: number; expired: number; revenue: number };
+  signOut: () => Promise<void>;
   loading: boolean;
 }
 
@@ -61,12 +65,13 @@ const planDurations: Record<string, number> = {
 export const GymProvider = ({ children }: { children: ReactNode }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchSupabaseData = async () => {
+  const fetchSupabaseData = async (userId: string) => {
     try {
-      const { data: cData, error: cErr } = await supabase.from("customers").select("*").order("joiningDate", { ascending: false });
-      const { data: pData, error: pErr } = await supabase.from("payments").select("*").order("paymentDate", { ascending: false });
+      const { data: cData, error: cErr } = await supabase.from("customers").select("*").eq("user_id", userId).order("joiningDate", { ascending: false });
+      const { data: pData, error: pErr } = await supabase.from("payments").select("*").eq("user_id", userId).order("paymentDate", { ascending: false });
 
       if (cErr) throw cErr;
       if (pErr) throw pErr;
@@ -136,15 +141,38 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      await runMigration();
-      await fetchSupabaseData();
-    };
-    init();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        runMigration().then(() => fetchSupabaseData(session.user.id));
+      } else {
+        setLoading(false);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session?.user) {
+        fetchSupabaseData(session.user.id);
+      } else {
+        setCustomers([]);
+        setPayments([]);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   const addCustomer = async (customer: Omit<Customer, "id" | "status">) => {
+    if (!session?.user) throw new Error("Must be logged in");
+
     const payload = {
       "fullName": customer.fullName,
       phone: customer.phone,
@@ -155,7 +183,8 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       status: computeStatus(customer.subscriptionEnd),
       photo: customer.photo || null,
       address: customer.address || null,
-      gender: customer.gender || null
+      gender: customer.gender || null,
+      user_id: session.user.id
     };
 
     const { data, error } = await supabase.from("customers").insert([payload]).select().single();
@@ -237,7 +266,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <GymContext.Provider value={{ customers, payments, addCustomer, addPayment, deleteCustomer, upgradeCustomer, getStats, loading }}>
+    <GymContext.Provider value={{ customers, payments, session, addCustomer, addPayment, deleteCustomer, upgradeCustomer, getStats, signOut, loading }}>
       {children}
     </GymContext.Provider>
   );

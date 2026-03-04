@@ -22,6 +22,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useGym } from "@/context/GymContext";
 
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -34,6 +35,7 @@ const mainItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const { signOut } = useGym();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
@@ -85,9 +87,17 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4">
         {!collapsed && (
-          <div className="rounded-lg bg-primary/5 border border-primary/10 p-3">
-            <p className="text-[11px] text-muted-foreground">Need help?</p>
-            <p className="text-[11px] text-primary font-medium mt-0.5">View Documentation</p>
+          <div className="flex flex-col gap-2">
+            <div className="rounded-lg bg-primary/5 border border-primary/10 p-3">
+              <p className="text-[11px] text-muted-foreground">Need help?</p>
+              <p className="text-[11px] text-primary font-medium mt-0.5 cursor-pointer hover:underline">View Documentation</p>
+            </div>
+            <button
+              onClick={() => signOut()}
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-destructive/10 text-destructive border border-destructive/20 p-2 text-sm font-medium hover:bg-destructive hover:text-destructive-foreground transition-colors"
+            >
+              Log Out
+            </button>
           </div>
         )}
       </SidebarFooter>
