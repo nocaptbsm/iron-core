@@ -111,7 +111,7 @@ const AddCustomer = () => {
       });
       toast.success(`${form.fullName} registered successfully!`);
       navigate("/customers");
-    } catch (error: any) {
+    } catch (error: Error | any) {
       console.error(error);
       toast.error(error.message || "Failed to register customer");
     }

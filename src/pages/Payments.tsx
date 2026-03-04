@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MoreHorizontal, FileText } from "lucide-react";
+import { MoreHorizontal, FileText, Printer } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ const Payments = () => {
   });
   const [receiptTarget, setReceiptTarget] = useState<Payment | null>(null);
   const [gymName, setGymName] = useState("");
+
+  const handlePrint = () => window.print();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +139,7 @@ const Payments = () => {
           <p className="text-muted-foreground text-sm mt-1">Register and track payments</p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 print:hidden">
           <Button variant={tab === "register" ? "default" : "outline"} size="sm" onClick={() => setTab("register")}>Register Payment</Button>
           <Button variant={tab === "history" ? "default" : "outline"} size="sm" onClick={() => setTab("history")}>Payment History</Button>
         </div>
@@ -193,60 +195,68 @@ const Payments = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl border border-border bg-card overflow-hidden"
+            className="space-y-4"
           >
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/30">
-                    <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer</th>
-                    <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Date</th>
-                    <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Plan</th>
-                    <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
-                    <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Mode</th>
-                    <th className="text-right p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider print:hidden">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((p, i) => (
-                    <motion.tr
-                      key={p.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
-                    >
-                      <td className="p-4 text-sm font-medium text-foreground">{p.customerName}</td>
-                      <td className="p-4 text-sm text-muted-foreground hidden sm:table-cell">{p.paymentDate}</td>
-                      <td className="p-4 text-sm text-foreground hidden md:table-cell">{p.plan}</td>
-                      <td className="p-4 text-sm font-semibold text-primary">₹{p.amount.toLocaleString()}</td>
-                      <td className="p-4 hidden sm:table-cell">
-                        <Badge variant="outline" className="text-xs">{p.mode}</Badge>
-                      </td>
-                      <td className="p-4 text-right print:hidden">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setReceiptTarget(p)} className="gap-2">
-                              <FileText className="h-4 w-4" /> E-Bill (PDF)
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex justify-end print:hidden">
+              <Button variant="outline" size="sm" className="gap-2" onClick={handlePrint}>
+                <Printer className="h-4 w-4" />
+                Print All Payments
+              </Button>
             </div>
-            {payments.length === 0 && (
-              <div className="p-12 text-center text-muted-foreground">
-                <p className="text-sm">No payments yet</p>
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/30">
+                      <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer</th>
+                      <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Date</th>
+                      <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Plan</th>
+                      <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
+                      <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Mode</th>
+                      <th className="text-right p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider print:hidden">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map((p, i) => (
+                      <motion.tr
+                        key={p.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
+                      >
+                        <td className="p-4 text-sm font-medium text-foreground">{p.customerName}</td>
+                        <td className="p-4 text-sm text-muted-foreground hidden sm:table-cell">{p.paymentDate}</td>
+                        <td className="p-4 text-sm text-foreground hidden md:table-cell">{p.plan}</td>
+                        <td className="p-4 text-sm font-semibold text-primary">₹{p.amount.toLocaleString()}</td>
+                        <td className="p-4 hidden sm:table-cell">
+                          <Badge variant="outline" className="text-xs">{p.mode}</Badge>
+                        </td>
+                        <td className="p-4 text-right print:hidden">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setReceiptTarget(p)} className="gap-2">
+                                <FileText className="h-4 w-4" /> E-Bill (PDF)
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
+              {payments.length === 0 && (
+                <div className="p-12 text-center text-muted-foreground">
+                  <p className="text-sm">No payments yet</p>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </div>
