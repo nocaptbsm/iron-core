@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useGym } from "@/context/GymContext";
 import {
   Sidebar,
   SidebarContent,
@@ -34,6 +35,7 @@ const mainItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const { isAdmin, logout } = useGym();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
@@ -78,18 +80,40 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive("/admin")}
+                    tooltip="Admin Portal"
+                    className="mt-2 text-primary"
+                  >
+                    <NavLink
+                      to="/admin"
+                      end
+                      className="hover:bg-primary/20 bg-primary/10 transition-colors"
+                      activeClassName="bg-primary/20 text-primary font-bold"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      {!collapsed && <span>Admin Portal</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        {!collapsed && (
-          <div className="rounded-lg bg-primary/5 border border-primary/10 p-3">
-            <p className="text-[11px] text-muted-foreground">Need help?</p>
-            <p className="text-[11px] text-primary font-medium mt-0.5">View Documentation</p>
-          </div>
-        )}
+      <SidebarFooter className="p-4 flex flex-col gap-2">
+        <button
+          onClick={logout}
+          className="flex items-center gap-3 p-2 w-full text-left text-sm font-medium text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+        >
+          <LayoutDashboard className="h-4 w-4 rotate-180" />
+          {!collapsed && <span>Log Out</span>}
+        </button>
       </SidebarFooter>
     </Sidebar>
   );
