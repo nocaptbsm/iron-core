@@ -94,8 +94,8 @@ Thank you for your business!
           <Input placeholder="Search by name or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 bg-card border-border" />
         </div>
 
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="rounded-xl border border-border bg-card overflow-hidden print:overflow-visible print:border-none">
+          <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-secondary/30">

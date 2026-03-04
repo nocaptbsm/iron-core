@@ -199,8 +199,8 @@ const Payments = () => {
                 Print All Payments
               </Button>
             </div>
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="rounded-xl border border-border bg-card overflow-hidden print:overflow-visible print:border-none">
+              <div className="overflow-x-auto print:overflow-visible">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-secondary/30">
