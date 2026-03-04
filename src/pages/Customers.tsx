@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Phone, Printer, Trash2, ArrowUpCircle, MoreHorizontal, FileText } from "lucide-react";
+import { Search, Phone, Printer, Trash2, ArrowUpCircle, MoreHorizontal, FileText, User, MapPin } from "lucide-react";
 import { differenceInCalendarMonths, differenceInDays } from "date-fns";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -138,7 +138,7 @@ const Customers = () => {
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
                   <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer</th>
-                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Phone</th>
+                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Contact & Info</th>
                   <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Plan</th>
                   <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Expires</th>
                   <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
@@ -172,14 +172,43 @@ const Customers = () => {
                           >
                             {customer.fullName}
                           </p>
-                          <p className="text-xs text-muted-foreground sm:hidden">{customer.phone}</p>
+                          <div className="sm:hidden mt-1 space-y-1">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                              <Phone className="h-3 w-3 shrink-0" />{customer.phone}
+                            </p>
+                            {customer.gender && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                <User className="h-3 w-3 shrink-0" />{customer.gender}
+                              </p>
+                            )}
+                            {customer.address && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate max-w-[150px]" title={customer.address}>{customer.address}</span>
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="p-4 hidden sm:table-cell">
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Phone className="h-3.5 w-3.5" />
-                        {customer.phone}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Phone className="h-3.5 w-3.5 shrink-0" />
+                          {customer.phone}
+                        </div>
+                        {customer.gender && (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <User className="h-3.5 w-3.5 shrink-0" />
+                            {customer.gender}
+                          </div>
+                        )}
+                        {customer.address && (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <MapPin className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate max-w-[150px]" title={customer.address}>{customer.address}</span>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="p-4 hidden md:table-cell text-sm text-foreground">
