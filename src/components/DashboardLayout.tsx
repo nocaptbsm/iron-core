@@ -15,7 +15,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
             <div className="ml-auto flex items-center gap-3">
               <div className="h-8 w-8 rounded-full overflow-hidden border border-primary/20 flex items-center justify-center bg-primary/10">
-                <img src="/ironcore-logo.jpg" alt="Logo" className="h-full w-full object-cover" />
+                <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
               </div>
             </div>
           </header>

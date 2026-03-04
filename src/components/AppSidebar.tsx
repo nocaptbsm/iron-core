@@ -45,7 +45,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg overflow-hidden flex items-center justify-center shrink-0 border border-border bg-black/20">
-            <img src="/ironcore-logo.jpg" alt="IronCore Logo" className="w-full h-full object-cover" />
+            <img src="/logo.png" alt="IronCore Logo" className="w-full h-full object-cover" />
           </div>
           {!collapsed && (
             <div>
