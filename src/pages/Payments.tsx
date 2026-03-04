@@ -192,11 +192,7 @@ const Payments = () => {
             <Button type="submit" className="w-full">Register Payment</Button>
           </motion.form>
         ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
+          <div className="space-y-4">
             <div className="flex justify-end print:hidden">
               <Button variant="outline" size="sm" className="gap-2" onClick={handlePrint}>
                 <Printer className="h-4 w-4" />
@@ -217,12 +213,9 @@ const Payments = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {payments.map((p, i) => (
-                      <motion.tr
+                    {payments.map((p) => (
+                      <tr
                         key={p.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: i * 0.05 }}
                         className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
                       >
                         <td className="p-4 text-sm font-medium text-foreground">{p.customerName}</td>
@@ -246,7 +239,7 @@ const Payments = () => {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
-                      </motion.tr>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -257,7 +250,7 @@ const Payments = () => {
                 </div>
               )}
             </div>
-          </motion.div>
+          </div>
         )}
       </div>
 
