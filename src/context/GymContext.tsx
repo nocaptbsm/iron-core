@@ -1,24 +1,20 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Customer, Payment } from "@/lib/mockData";
 import { differenceInDays, addMonths, format } from "date-fns";
+import { supabase } from "@/lib/supabase";
 
 interface GymContextType {
   customers: Customer[];
   payments: Payment[];
   addCustomer: (customer: Omit<Customer, "id" | "status">) => Promise<void>;
   addPayment: (payment: Omit<Payment, "id">) => Promise<void>;
-  deleteCustomer: (id: string) => void;
-  upgradeCustomer: (id: string, plan: Customer["subscriptionPlan"]) => void;
+  deleteCustomer: (id: string) => Promise<void>;
+  upgradeCustomer: (id: string, plan: Customer["subscriptionPlan"]) => Promise<void>;
   getStats: () => { total: number; active: number; expiring: number; expired: number; revenue: number };
   loading: boolean;
 }
 
 const GymContext = createContext<GymContextType | undefined>(undefined);
-
-const STORAGE_KEYS = {
-  customers: "gym_customers",
-  payments: "gym_payments",
-};
 
 const computeStatus = (endDate: string): Customer["status"] => {
   const end = new Date(endDate);
@@ -29,25 +25,30 @@ const computeStatus = (endDate: string): Customer["status"] => {
   return "active";
 };
 
-const safeParse = <T,>(raw: string | null, fallback: T): T => {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-};
-
-const createId = () => {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-};
-
-const normalizeCustomer = (customer: Customer): Customer => ({
-  ...customer,
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const normalizeCustomer = (customer: any): Customer => ({
+  id: customer.id,
+  fullName: customer.fullName,
+  phone: customer.phone,
+  address: customer.address || undefined,
+  gender: customer.gender || undefined,
+  photo: customer.photo || undefined,
+  joiningDate: customer.joiningDate,
+  subscriptionPlan: customer.subscriptionPlan,
+  subscriptionStart: customer.subscriptionStart,
+  subscriptionEnd: customer.subscriptionEnd,
   status: computeStatus(customer.subscriptionEnd),
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const normalizePayment = (payment: any): Payment => ({
+  id: payment.id,
+  customerId: payment.customerId,
+  customerName: payment.customerName,
+  paymentDate: payment.paymentDate,
+  amount: Number(payment.amount),
+  plan: payment.plan,
+  mode: payment.mode,
 });
 
 const planDurations: Record<string, number> = {
@@ -62,63 +63,168 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchSupabaseData = async () => {
+    try {
+      const { data: cData, error: cErr } = await supabase.from("customers").select("*").order("joiningDate", { ascending: false });
+      const { data: pData, error: pErr } = await supabase.from("payments").select("*").order("paymentDate", { ascending: false });
+
+      if (cErr) throw cErr;
+      if (pErr) throw pErr;
+
+      setCustomers((cData || []).map(normalizeCustomer));
+      setPayments((pData || []).map(normalizePayment));
+    } catch (error) {
+      console.error("Error fetching from Supabase:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runMigration = async () => {
+    const localCustomers = window.localStorage.getItem("gym_customers");
+    const localPayments = window.localStorage.getItem("gym_payments");
+
+    if (!localCustomers && !localPayments) return false;
+
+    try {
+      const cList = JSON.parse(localCustomers || "[]");
+      const pList = JSON.parse(localPayments || "[]");
+
+      if (cList.length === 0 && pList.length === 0) return false;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const formattedCustomers = cList.map((c: any) => ({
+        id: c.id,
+        "fullName": c.fullName,
+        phone: c.phone,
+        "joiningDate": c.joiningDate,
+        "subscriptionPlan": c.subscriptionPlan,
+        "subscriptionStart": c.subscriptionStart,
+        "subscriptionEnd": c.subscriptionEnd,
+        status: computeStatus(c.subscriptionEnd),
+        photo: c.photo || null,
+        address: c.address || null,
+        gender: c.gender || null
+      }));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const formattedPayments = pList.map((p: any) => ({
+        id: p.id,
+        "customerId": p.customerId,
+        "customerName": p.customerName || "Unknown",
+        "paymentDate": p.paymentDate,
+        amount: Number(p.amount),
+        plan: p.plan,
+        mode: p.mode
+      }));
+
+      if (formattedCustomers.length > 0) {
+        await supabase.from("customers").upsert(formattedCustomers, { onConflict: "id" });
+      }
+      if (formattedPayments.length > 0) {
+        await supabase.from("payments").upsert(formattedPayments, { onConflict: "id" });
+      }
+
+      window.localStorage.removeItem("gym_customers");
+      window.localStorage.removeItem("gym_payments");
+      console.log("Migration successful");
+      return true;
+    } catch (error) {
+      console.error("Migration failed:", error);
+      return false;
+    }
+  };
+
   useEffect(() => {
-    const storedCustomers = safeParse<Customer[]>(window.localStorage.getItem(STORAGE_KEYS.customers), []);
-    const storedPayments = safeParse<Payment[]>(window.localStorage.getItem(STORAGE_KEYS.payments), []);
-    setCustomers(storedCustomers.map(normalizeCustomer));
-    setPayments(storedPayments);
-    setLoading(false);
+    const init = async () => {
+      setLoading(true);
+      await runMigration();
+      await fetchSupabaseData();
+    };
+    init();
   }, []);
 
-  useEffect(() => {
-    if (loading) return;
-    window.localStorage.setItem(STORAGE_KEYS.customers, JSON.stringify(customers.map(normalizeCustomer)));
-  }, [customers, loading]);
-
-  useEffect(() => {
-    if (loading) return;
-    window.localStorage.setItem(STORAGE_KEYS.payments, JSON.stringify(payments));
-  }, [payments, loading]);
-
   const addCustomer = async (customer: Omit<Customer, "id" | "status">) => {
-    const newCustomer: Customer = {
-      ...customer,
-      id: createId(),
+    const payload = {
+      "fullName": customer.fullName,
+      phone: customer.phone,
+      "joiningDate": customer.joiningDate,
+      "subscriptionPlan": customer.subscriptionPlan,
+      "subscriptionStart": customer.subscriptionStart,
+      "subscriptionEnd": customer.subscriptionEnd,
       status: computeStatus(customer.subscriptionEnd),
+      photo: customer.photo || null,
+      address: customer.address || null,
+      gender: customer.gender || null
     };
-    setCustomers((prev) => [newCustomer, ...prev]);
+
+    const { data, error } = await supabase.from("customers").insert([payload]).select().single();
+    if (error) {
+      console.error("Error adding customer:", error);
+      throw new Error(error.message || "Database insert failed");
+    }
+    if (data) {
+      setCustomers((prev) => [normalizeCustomer(data), ...prev]);
+    }
   };
 
-  const deleteCustomer = (id: string) => {
-    setCustomers((prev) => prev.filter((c) => c.id !== id));
-    setPayments((prev) => prev.filter((p) => p.customerId !== id));
+  const deleteCustomer = async (id: string) => {
+    const { error } = await supabase.from("customers").delete().eq("id", id);
+    if (!error) {
+      setCustomers((prev) => prev.filter((c) => c.id !== id));
+      setPayments((prev) => prev.filter((p) => p.customerId !== id));
+    } else {
+      console.error("Error deleting customer:", error);
+    }
   };
 
-  const upgradeCustomer = (id: string, plan: Customer["subscriptionPlan"]) => {
+  const upgradeCustomer = async (id: string, plan: Customer["subscriptionPlan"]) => {
+    const c = customers.find(c => c.id === id);
+    if (!c) return;
+
+    const months = planDurations[plan] || 1;
+    const baseDate = new Date(c.subscriptionEnd) > new Date() ? new Date(c.subscriptionEnd) : new Date();
+    const newEnd = format(addMonths(baseDate, months), "yyyy-MM-dd");
+    const newStart = format(new Date(), "yyyy-MM-dd");
+
+    const payload = {
+      "subscriptionPlan": plan,
+      "subscriptionStart": newStart,
+      "subscriptionEnd": newEnd,
+      status: computeStatus(newEnd)
+    };
+
+    const { data, error } = await supabase.from("customers").update(payload).eq("id", id).select().single();
+
+    if (error) {
+      console.error("Error upgrading:", error);
+      return;
+    }
+
     setCustomers((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
-        const months = planDurations[plan] || 1;
-        const baseDate = new Date(c.subscriptionEnd) > new Date() ? new Date(c.subscriptionEnd) : new Date();
-        const newEnd = format(addMonths(baseDate, months), "yyyy-MM-dd");
-        return normalizeCustomer({
-          ...c,
-          subscriptionPlan: plan,
-          subscriptionStart: format(new Date(), "yyyy-MM-dd"),
-          subscriptionEnd: newEnd,
-        });
-      })
+      prev.map((cust) => (cust.id === id && data ? normalizeCustomer(data) : cust))
     );
   };
 
   const addPayment = async (payment: Omit<Payment, "id">) => {
     const customer = customers.find((c) => c.id === payment.customerId);
-    const newPayment: Payment = {
-      ...payment,
-      id: createId(),
-      customerName: payment.customerName || customer?.fullName || "Unknown",
+    const payload = {
+      "customerId": payment.customerId,
+      "customerName": payment.customerName || customer?.fullName || "Unknown",
+      "paymentDate": payment.paymentDate,
+      amount: Number(payment.amount),
+      plan: payment.plan,
+      mode: payment.mode
     };
-    setPayments((prev) => [newPayment, ...prev]);
+
+    const { data, error } = await supabase.from("payments").insert([payload]).select().single();
+    if (error) {
+      console.error("Error adding payment:", error);
+      throw error;
+    }
+    if (data) {
+      setPayments((prev) => [normalizePayment(data), ...prev]);
+    }
   };
 
   const getStats = () => {
@@ -131,7 +237,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <GymContext.Provider value={{ customers: customers.map(normalizeCustomer), payments, addCustomer, addPayment, deleteCustomer, upgradeCustomer, getStats, loading }}>
+    <GymContext.Provider value={{ customers, payments, addCustomer, addPayment, deleteCustomer, upgradeCustomer, getStats, loading }}>
       {children}
     </GymContext.Provider>
   );

@@ -9,6 +9,7 @@ export interface Customer {
   status: 'active' | 'expiring' | 'expired';
   photo?: string;
   address?: string;
+  gender?: string;
 }
 
 export interface Payment {

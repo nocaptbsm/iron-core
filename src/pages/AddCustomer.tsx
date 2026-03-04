@@ -97,19 +97,24 @@ const AddCustomer = () => {
       endDate = format(addMonths(new Date(form.joiningDate), months), "yyyy-MM-dd");
     }
 
-    await addCustomer({
-      fullName: form.fullName,
-      phone: form.phone,
-      address: form.address,
-      joiningDate: form.joiningDate,
-      subscriptionPlan: form.plan as Customer["subscriptionPlan"],
-      subscriptionStart: form.joiningDate,
-      subscriptionEnd: endDate,
-      photo: photo || undefined,
-      gender: form.gender,
-    });
-    toast.success(`${form.fullName} registered successfully!`);
-    navigate("/customers");
+    try {
+      await addCustomer({
+        fullName: form.fullName,
+        phone: form.phone,
+        address: form.address,
+        joiningDate: form.joiningDate,
+        subscriptionPlan: form.plan as Customer["subscriptionPlan"],
+        subscriptionStart: form.joiningDate,
+        subscriptionEnd: endDate,
+        photo: photo || undefined,
+        gender: form.gender,
+      });
+      toast.success(`${form.fullName} registered successfully!`);
+      navigate("/customers");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Failed to register customer");
+    }
   };
 
   return (

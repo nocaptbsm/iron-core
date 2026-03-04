@@ -41,7 +41,7 @@ const Payments = () => {
       paymentDate: form.paymentDate,
       amount: Number(form.amount),
       plan: customer?.subscriptionPlan || "N/A",
-      mode: form.mode as any,
+      mode: form.mode as Payment["mode"],
     });
     toast.success(`Payment of ₹${form.amount} registered for ${customer?.fullName}`);
     setForm({ customerId: "", amount: "", mode: "", paymentDate: format(new Date(), "yyyy-MM-dd") });
@@ -95,6 +95,7 @@ const Payments = () => {
     });
 
     // Footer
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const finalY = (doc as any).lastAutoTable.finalY || 120;
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
