@@ -18,7 +18,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
             <div className="ml-auto flex items-center gap-3">
               {session?.user?.email && (
-                <span className="text-sm font-medium text-muted-foreground mr-2 border border-border px-3 py-1 rounded-full bg-secondary/20 hidden sm:inline-block">
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground mr-2 border border-border px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-secondary/20 truncate max-w-[130px] sm:max-w-none">
                   {session.user.email}
                 </span>
               )}
