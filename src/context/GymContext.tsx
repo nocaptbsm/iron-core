@@ -100,12 +100,12 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedCustomers = cList.map((c: any) => ({
         id: c.id,
-        full_name: c.fullName,
+        fullName: c.fullName,
         phone: c.phone,
-        joining_date: c.joiningDate,
-        subscription_plan: c.subscriptionPlan,
-        subscription_start: c.subscriptionStart,
-        subscription_end: c.subscriptionEnd,
+        joiningDate: c.joiningDate,
+        subscriptionPlan: c.subscriptionPlan,
+        subscriptionStart: c.subscriptionStart,
+        subscriptionEnd: c.subscriptionEnd,
         status: computeStatus(c.subscriptionEnd),
         photo: c.photo || null,
         address: c.address || null,
@@ -116,9 +116,9 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedPayments = pList.map((p: any) => ({
         id: p.id,
-        customer_id: p.customerId,
-        customer_name: p.customerName || "Unknown",
-        payment_date: p.paymentDate,
+        customerId: p.customerId,
+        customerName: p.customerName || "Unknown",
+        paymentDate: p.paymentDate,
         amount: Number(p.amount),
         plan: p.plan,
         mode: p.mode,
@@ -177,12 +177,12 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     if (!session?.user) throw new Error("Must be logged in");
 
     const payload = {
-      full_name: customer.fullName,
+      fullName: customer.fullName,
       phone: customer.phone,
-      joining_date: customer.joiningDate,
-      subscription_plan: customer.subscriptionPlan,
-      subscription_start: customer.subscriptionStart,
-      subscription_end: customer.subscriptionEnd,
+      joiningDate: customer.joiningDate,
+      subscriptionPlan: customer.subscriptionPlan,
+      subscriptionStart: customer.subscriptionStart,
+      subscriptionEnd: customer.subscriptionEnd,
       status: computeStatus(customer.subscriptionEnd),
       photo: customer.photo || null,
       address: customer.address || null,
@@ -220,9 +220,9 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     const newStart = format(new Date(), "yyyy-MM-dd");
 
     const payload = {
-      subscription_plan: plan,
-      subscription_start: newStart,
-      subscription_end: newEnd,
+      subscriptionPlan: plan,
+      subscriptionStart: newStart,
+      subscriptionEnd: newEnd,
       status: computeStatus(newEnd)
     };
 
@@ -243,9 +243,9 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
     const customer = customers.find((c) => c.id === payment.customerId);
     const payload = {
-      customer_id: payment.customerId,
-      customer_name: payment.customerName || customer?.fullName || "Unknown",
-      payment_date: payment.paymentDate,
+      customerId: payment.customerId,
+      customerName: payment.customerName || customer?.fullName || "Unknown",
+      paymentDate: payment.paymentDate,
       amount: Number(payment.amount),
       plan: payment.plan,
       mode: payment.mode,
