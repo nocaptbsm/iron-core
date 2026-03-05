@@ -169,7 +169,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const runMigration = async () => {
+  const runMigration = async (userId: string) => {
     try {
       const localCustomers = window.localStorage.getItem("gym_customers");
       const localPayments = window.localStorage.getItem("gym_payments");
@@ -193,7 +193,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
         photo: c.photo || null,
         address: c.address || null,
         gender: c.gender || null,
-        user_id: session?.user?.id
+        user_id: userId
       }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -205,7 +205,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
         amount: Number(p.amount),
         plan: p.plan,
         mode: p.mode,
-        user_id: session?.user?.id
+        user_id: userId
       }));
 
       if (formattedCustomers.length > 0) {
@@ -241,7 +241,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
           const isApproved = await checkApprovalStatus(session.user);
           if (isApproved) {
             if (mounted) setSession(session);
-            await runMigration();
+            await runMigration(session.user.id);
             if (mounted) {
               await fetchSupabaseData(session.user.id);
               subscribeToPush(session.user.id);
