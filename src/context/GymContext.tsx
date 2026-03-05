@@ -226,61 +226,52 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    let mounted = true;
+    let authSubscription: { unsubscribe: () => void } | null = null;
 
-    const initializeAuth = async () => {
+    const setupAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
+
         if (error) {
-          console.error("Session error:", error);
-          if (mounted) setLoading(false);
+          console.error("Session fetch failed:", error);
+          setSession(null);
+          setLoading(false);
           return;
         }
 
         if (session?.user) {
           const isApproved = await checkApprovalStatus(session.user);
           if (isApproved) {
-            if (mounted) setSession(session);
+            setSession(session);
             await runMigration(session.user.id);
-            if (mounted) {
-              await fetchSupabaseData(session.user.id);
-              subscribeToPush(session.user.id);
-            }
+            await fetchSupabaseData(session.user.id);
+            subscribeToPush(session.user.id);
           } else {
-            if (mounted) setLoading(false);
+            setSession(null);
           }
         } else {
-          if (mounted) {
-            setSession(null);
-            setLoading(false);
-          }
+          setSession(null);
         }
       } catch (err) {
-        console.error("Critical getSession failure", err);
-        if (mounted) {
-          setSession(null);
-          setLoading(false);
-        }
-      }
-    };
-
-    initializeAuth();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      if (event === 'INITIAL_SESSION') return;
-
-      if (event === 'SIGNED_OUT') {
+        console.error("Unhandled auth startup error:", err);
         setSession(null);
-        setCustomers([]);
-        setPayments([]);
+      } finally {
         setLoading(false);
-        return;
       }
 
-      if (event === 'SIGNED_IN') {
-        if (currentSession?.user) {
+      // Initialize real-time listener ONLY after the first load is fully complete
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+        if (event === 'INITIAL_SESSION') return;
+
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setCustomers([]);
+          setPayments([]);
+          return;
+        }
+
+        if (event === 'SIGNED_IN' && currentSession?.user) {
+          setLoading(true);
           const isApproved = await checkApprovalStatus(currentSession.user);
           if (isApproved) {
             setSession(currentSession);
@@ -288,19 +279,22 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
             subscribeToPush(currentSession.user.id);
           } else {
             setSession(null);
-            setLoading(false);
           }
+          setLoading(false);
+        } else if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          if (currentSession) setSession(currentSession);
         }
-      } else if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        if (currentSession) setSession(currentSession);
-      }
-    });
+      });
+      authSubscription = subscription;
+    };
+
+    setupAuth();
 
     return () => {
-      mounted = false;
-      subscription.unsubscribe();
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signOut = async () => {
