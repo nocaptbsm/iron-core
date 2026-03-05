@@ -86,17 +86,21 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
   const checkApprovalStatus = async (user: User) => {
     if (!user.email) {
-      await supabase.auth.signOut();
+      supabase.auth.signOut().catch(console.error);
       toast.error("Email required for login.");
       return false;
     }
 
     try {
-      const { data, error } = await supabase.from('approved_emails').select('email').ilike('email', user.email).single();
+      const { data, error } = await supabase
+        .from('approved_emails')
+        .select('email')
+        .ilike('email', user.email)
+        .limit(1);
 
-      if (error || !data) {
+      if (error || !data || data.length === 0) {
         console.warn("Blocked login for unapproved email:", user.email, error);
-        await supabase.auth.signOut();
+        supabase.auth.signOut().catch(console.error);
         toast.error(`Access denied. The email ${user.email} is not approved.`);
         return false;
       }
@@ -222,68 +226,80 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    supabase.auth.getSession()
-      .then(async ({ data: { session }, error }) => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error("Session error:", error);
-          setLoading(false);
+          if (mounted) setLoading(false);
           return;
         }
+
         if (session?.user) {
           const isApproved = await checkApprovalStatus(session.user);
           if (isApproved) {
-            setSession(session);
-            runMigration()
-              .then(() => fetchSupabaseData(session.user.id))
-              .catch((err) => {
-                console.error("Migration promise failed", err);
-                fetchSupabaseData(session.user.id);
-              });
-            subscribeToPush(session.user.id);
+            if (mounted) setSession(session);
+            await runMigration();
+            if (mounted) {
+              await fetchSupabaseData(session.user.id);
+              subscribeToPush(session.user.id);
+            }
           } else {
-            setLoading(false);
+            if (mounted) setLoading(false);
           }
         } else {
+          if (mounted) {
+            setSession(null);
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.error("Critical getSession failure", err);
+        if (mounted) {
           setSession(null);
           setLoading(false);
         }
-      })
-      .catch((err) => {
-        console.error("Critical getSession failure", err);
-        setSession(null);
-        setLoading(false);
-      });
+      }
+    };
+
+    initializeAuth();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      try {
-        if (session?.user) {
-          const isApproved = await checkApprovalStatus(session.user);
+    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      if (event === 'INITIAL_SESSION') return;
+
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setCustomers([]);
+        setPayments([]);
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'SIGNED_IN') {
+        if (currentSession?.user) {
+          const isApproved = await checkApprovalStatus(currentSession.user);
           if (isApproved) {
-            setSession(session);
-            fetchSupabaseData(session.user.id);
-            subscribeToPush(session.user.id);
+            setSession(currentSession);
+            await fetchSupabaseData(currentSession.user.id);
+            subscribeToPush(currentSession.user.id);
           } else {
             setSession(null);
-            setCustomers([]);
-            setPayments([]);
             setLoading(false);
           }
-        } else {
-          setSession(null);
-          setCustomers([]);
-          setPayments([]);
-          setLoading(false);
         }
-      } catch (err) {
-        console.error("Auth state change exception", err);
-        setSession(null);
-        setLoading(false);
+      } else if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (currentSession) setSession(currentSession);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
