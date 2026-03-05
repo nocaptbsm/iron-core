@@ -32,27 +32,27 @@ const computeStatus = (endDate: string): Customer["status"] => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const normalizeCustomer = (customer: any): Customer => ({
   id: customer.id,
-  fullName: customer.fullName,
+  fullName: customer.full_name || customer.fullName || "",
   phone: customer.phone,
   address: customer.address || undefined,
   gender: customer.gender || undefined,
   photo: customer.photo || undefined,
-  joiningDate: customer.joiningDate,
-  subscriptionPlan: customer.subscriptionPlan,
-  subscriptionStart: customer.subscriptionStart,
-  subscriptionEnd: customer.subscriptionEnd,
-  status: computeStatus(customer.subscriptionEnd),
+  joiningDate: customer.joining_date || customer.joiningDate || "",
+  subscriptionPlan: customer.subscription_plan || customer.subscriptionPlan || "1 month",
+  subscriptionStart: customer.subscription_start || customer.subscriptionStart || "",
+  subscriptionEnd: customer.subscription_end || customer.subscriptionEnd || "",
+  status: customer.status || computeStatus(customer.subscription_end || customer.subscriptionEnd),
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const normalizePayment = (payment: any): Payment => ({
   id: payment.id,
-  customerId: payment.customerId,
-  customerName: payment.customerName,
-  paymentDate: payment.paymentDate,
+  customerId: payment.customer_id || payment.customerId,
+  customerName: payment.customer_name || payment.customerName || "Unknown",
+  paymentDate: payment.payment_date || payment.paymentDate || "",
   amount: Number(payment.amount),
-  plan: payment.plan,
-  mode: payment.mode,
+  plan: payment.plan || "",
+  mode: payment.mode || "",
 });
 
 const planDurations: Record<string, number> = {
@@ -100,27 +100,29 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedCustomers = cList.map((c: any) => ({
         id: c.id,
-        "fullName": c.fullName,
+        full_name: c.fullName,
         phone: c.phone,
-        "joiningDate": c.joiningDate,
-        "subscriptionPlan": c.subscriptionPlan,
-        "subscriptionStart": c.subscriptionStart,
-        "subscriptionEnd": c.subscriptionEnd,
+        joining_date: c.joiningDate,
+        subscription_plan: c.subscriptionPlan,
+        subscription_start: c.subscriptionStart,
+        subscription_end: c.subscriptionEnd,
         status: computeStatus(c.subscriptionEnd),
         photo: c.photo || null,
         address: c.address || null,
-        gender: c.gender || null
+        gender: c.gender || null,
+        user_id: session?.user?.id
       }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedPayments = pList.map((p: any) => ({
         id: p.id,
-        "customerId": p.customerId,
-        "customerName": p.customerName || "Unknown",
-        "paymentDate": p.paymentDate,
+        customer_id: p.customerId,
+        customer_name: p.customerName || "Unknown",
+        payment_date: p.paymentDate,
         amount: Number(p.amount),
         plan: p.plan,
-        mode: p.mode
+        mode: p.mode,
+        user_id: session?.user?.id
       }));
 
       if (formattedCustomers.length > 0) {
@@ -164,6 +166,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signOut = async () => {
@@ -174,12 +177,12 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     if (!session?.user) throw new Error("Must be logged in");
 
     const payload = {
-      "fullName": customer.fullName,
+      full_name: customer.fullName,
       phone: customer.phone,
-      "joiningDate": customer.joiningDate,
-      "subscriptionPlan": customer.subscriptionPlan,
-      "subscriptionStart": customer.subscriptionStart,
-      "subscriptionEnd": customer.subscriptionEnd,
+      joining_date: customer.joiningDate,
+      subscription_plan: customer.subscriptionPlan,
+      subscription_start: customer.subscriptionStart,
+      subscription_end: customer.subscriptionEnd,
       status: computeStatus(customer.subscriptionEnd),
       photo: customer.photo || null,
       address: customer.address || null,
@@ -217,9 +220,9 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     const newStart = format(new Date(), "yyyy-MM-dd");
 
     const payload = {
-      "subscriptionPlan": plan,
-      "subscriptionStart": newStart,
-      "subscriptionEnd": newEnd,
+      subscription_plan: plan,
+      subscription_start: newStart,
+      subscription_end: newEnd,
       status: computeStatus(newEnd)
     };
 
@@ -236,14 +239,17 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addPayment = async (payment: Omit<Payment, "id">) => {
+    if (!session?.user) throw new Error("Must be logged in");
+
     const customer = customers.find((c) => c.id === payment.customerId);
     const payload = {
-      "customerId": payment.customerId,
-      "customerName": payment.customerName || customer?.fullName || "Unknown",
-      "paymentDate": payment.paymentDate,
+      customer_id: payment.customerId,
+      customer_name: payment.customerName || customer?.fullName || "Unknown",
+      payment_date: payment.paymentDate,
       amount: Number(payment.amount),
       plan: payment.plan,
-      mode: payment.mode
+      mode: payment.mode,
+      user_id: session.user.id
     };
 
     const { data, error } = await supabase.from("payments").insert([payload]).select().single();
