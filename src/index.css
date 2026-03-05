@@ -2,7 +2,9 @@
 
 @tailwind base;
 @tailwind components;
-@tailwind utilities;@layer base {
+@tailwind utilities;
+
+@layer base {
   :root {
     --background: 220 14% 6%;
     --foreground: 0 0% 95%;
@@ -66,7 +68,12 @@
     font-family: 'Inter', sans-serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: 'Space Grotesk', sans-serif;
   }
 }
@@ -96,4 +103,35 @@
 
 .neon-text {
   text-shadow: 0 0 20px hsl(142 72% 50% / 0.5);
+}
+
+@media print {
+
+  /* Comprehensive fix for Safari/Webkit Flexbox DOM destruction on window.print() */
+  html,
+  body,
+  #root,
+  main,
+  .group\/sidebar-wrapper,
+  .flex-1,
+  .min-h-screen,
+  .h-svh,
+  table,
+  tr,
+  td,
+  th {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+
+  /* Safari sometimes fails to restore flex context after print preview, block forces normal flow */
+  body,
+  #root,
+  main,
+  .flex-1 {
+    display: block !important;
+  }
 }
