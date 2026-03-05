@@ -1,4 +1,4 @@
-import { Users, UserCheck, AlertTriangle, UserX, DollarSign, UserPlus, CreditCard } from "lucide-react";
+import { Users, UserCheck, AlertTriangle, UserX, UserPlus, CreditCard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import StatCard from "@/components/StatCard";
@@ -35,12 +35,11 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard title="Total Customers" value={stats.total} icon={Users} onClick={() => navigate("/customers")} />
           <StatCard title="Active" value={stats.active} icon={UserCheck} variant="primary" onClick={() => navigate("/customers")} />
           <StatCard title="Expiring Soon" value={stats.expiring} icon={AlertTriangle} variant="warning" onClick={() => navigate("/reminders")} />
           <StatCard title="Expired" value={stats.expired} icon={UserX} variant="destructive" onClick={() => navigate("/reminders")} />
-          <StatCard title="Revenue" value={`₹${stats.revenue.toLocaleString()}`} icon={DollarSign} variant="primary" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
