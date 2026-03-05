@@ -8,6 +8,7 @@ interface StatCardProps {
   icon: LucideIcon;
   trend?: string;
   variant?: "default" | "primary" | "warning" | "destructive";
+  onClick?: () => void;
 }
 
 const variantStyles = {
@@ -24,14 +25,16 @@ const iconVariantStyles = {
   destructive: "bg-destructive/10 text-destructive",
 };
 
-const StatCard = ({ title, value, icon: Icon, trend, variant = "default" }: StatCardProps) => {
+const StatCard = ({ title, value, icon: Icon, trend, variant = "default", onClick }: StatCardProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
+      onClick={onClick}
       className={cn(
         "rounded-xl border p-5 transition-all hover:shadow-lg",
+        onClick && "cursor-pointer active:scale-[0.98]",
         variantStyles[variant]
       )}
     >
