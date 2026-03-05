@@ -62,6 +62,22 @@ const planDurations: Record<string, number> = {
   "12 months": 12,
 };
 
+// Utility to convert Base64 VAPID key to Uint8Array
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export const GymProvider = ({ children }: { children: ReactNode }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -82,6 +98,48 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       console.error("Error fetching from Supabase:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const subscribeToPush = async (userId: string) => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service Worker registered');
+
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+          if (!vapidPublicKey) {
+            console.warn("VITE_VAPID_PUBLIC_KEY is missing from environment variables");
+            return;
+          }
+
+          const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+
+          let subscription = await registration.pushManager.getSubscription();
+          if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: convertedVapidKey
+            });
+          }
+
+          // Send subscription to Supabase
+          const subData = subscription.toJSON();
+          if (subData.endpoint && subData.keys?.p256dh && subData.keys?.auth) {
+            await supabase.from('push_subscriptions').upsert([{
+              user_id: userId,
+              endpoint: subData.endpoint,
+              p256dh: subData.keys.p256dh,
+              auth: subData.keys.auth
+            }], { onConflict: 'endpoint' });
+            console.log("Push subscription saved to Supabase");
+          }
+        }
+      } catch (error) {
+        console.error('Service Worker / Push Registration failed:', error);
+      }
     }
   };
 
@@ -147,6 +205,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       if (session?.user) {
         runMigration().then(() => fetchSupabaseData(session.user.id));
+        subscribeToPush(session.user.id);
       } else {
         setLoading(false);
       }
@@ -158,6 +217,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       if (session?.user) {
         fetchSupabaseData(session.user.id);
+        subscribeToPush(session.user.id);
       } else {
         setCustomers([]);
         setPayments([]);
