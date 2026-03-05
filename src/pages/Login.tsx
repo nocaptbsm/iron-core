@@ -41,6 +41,9 @@ const Login = () => {
         try {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: "google",
+                options: {
+                    redirectTo: `${window.location.origin}/`,
+                }
             });
             if (error) throw error;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

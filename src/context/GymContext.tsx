@@ -90,15 +90,19 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       toast.error("Email required for login.");
       return false;
     }
+
     try {
-      const { data, error } = await supabase.from('approved_emails').select('email').eq('email', user.email).single();
+      const { data, error } = await supabase.from('approved_emails').select('email').ilike('email', user.email).single();
+
       if (error || !data) {
+        console.warn("Blocked login for unapproved email:", user.email, error);
         await supabase.auth.signOut();
-        toast.error("Access denied. Please contact admin to approve your email.");
+        toast.error(`Access denied. The email ${user.email} is not approved.`);
         return false;
       }
       return true;
-    } catch {
+    } catch (e) {
+      console.error("Error checking approval status", e);
       await supabase.auth.signOut();
       toast.error("Access denied. Please contact admin to approve your email.");
       return false;
