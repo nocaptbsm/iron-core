@@ -103,7 +103,8 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       return true;
     } catch (e) {
       console.error("Error checking approval status", e);
-      await supabase.auth.signOut();
+      // Suppress network errors from signOut if we're already failing
+      supabase.auth.signOut().catch(console.error);
       toast.error("Access denied. Please contact admin to approve your email.");
       return false;
     }
@@ -165,12 +166,11 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const runMigration = async () => {
-    const localCustomers = window.localStorage.getItem("gym_customers");
-    const localPayments = window.localStorage.getItem("gym_payments");
-
-    if (!localCustomers && !localPayments) return false;
-
     try {
+      const localCustomers = window.localStorage.getItem("gym_customers");
+      const localPayments = window.localStorage.getItem("gym_payments");
+
+      if (!localCustomers && !localPayments) return false;
       const cList = JSON.parse(localCustomers || "[]");
       const pList = JSON.parse(localPayments || "[]");
 
@@ -222,41 +222,63 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const isApproved = await checkApprovalStatus(session.user);
-        if (isApproved) {
-          setSession(session);
-          runMigration().then(() => fetchSupabaseData(session.user.id));
-          subscribeToPush(session.user.id);
+    supabase.auth.getSession()
+      .then(async ({ data: { session }, error }) => {
+        if (error) {
+          console.error("Session error:", error);
+          setLoading(false);
+          return;
+        }
+        if (session?.user) {
+          const isApproved = await checkApprovalStatus(session.user);
+          if (isApproved) {
+            setSession(session);
+            runMigration()
+              .then(() => fetchSupabaseData(session.user.id))
+              .catch((err) => {
+                console.error("Migration promise failed", err);
+                fetchSupabaseData(session.user.id);
+              });
+            subscribeToPush(session.user.id);
+          } else {
+            setLoading(false);
+          }
         } else {
+          setSession(null);
           setLoading(false);
         }
-      } else {
+      })
+      .catch((err) => {
+        console.error("Critical getSession failure", err);
         setSession(null);
         setLoading(false);
-      }
-    });
+      });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const isApproved = await checkApprovalStatus(session.user);
-        if (isApproved) {
-          setSession(session);
-          fetchSupabaseData(session.user.id);
-          subscribeToPush(session.user.id);
+      try {
+        if (session?.user) {
+          const isApproved = await checkApprovalStatus(session.user);
+          if (isApproved) {
+            setSession(session);
+            fetchSupabaseData(session.user.id);
+            subscribeToPush(session.user.id);
+          } else {
+            setSession(null);
+            setCustomers([]);
+            setPayments([]);
+            setLoading(false);
+          }
         } else {
           setSession(null);
           setCustomers([]);
           setPayments([]);
           setLoading(false);
         }
-      } else {
+      } catch (err) {
+        console.error("Auth state change exception", err);
         setSession(null);
-        setCustomers([]);
-        setPayments([]);
         setLoading(false);
       }
     });
