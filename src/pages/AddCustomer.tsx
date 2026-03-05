@@ -110,6 +110,14 @@ const AddCustomer = () => {
         gender: form.gender,
       });
       toast.success(`${form.fullName} registered successfully!`);
+
+      const gymName = window.prompt("Enter the Gym Name for the WhatsApp message:", "IronCore Gym");
+      if (gymName) {
+        const message = `Welcome to *${gymName}*, ${form.fullName}! 💪\n\nYour registration is successful.\n*Plan:* ${form.plan}\n*Start Date:* ${format(new Date(form.joiningDate), "dd MMM yyyy")}\n*End Date:* ${format(new Date(endDate), "dd MMM yyyy")}\n\nLet's crush those fitness goals! 🔥`;
+        const waUrl = `https://wa.me/${form.phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`;
+        window.open(waUrl, "_blank");
+      }
+
       navigate("/customers");
     } catch (error: unknown) {
       console.error(error);

@@ -109,11 +109,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-          const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-          if (!vapidPublicKey) {
-            console.warn("VITE_VAPID_PUBLIC_KEY is missing from environment variables");
-            return;
-          }
+          const vapidPublicKey = "BF3oIBj-i7Afmo4ClXqUNHRLX9gaxmasPW2boRON94UEDqFxkeHycUxwNvL1yrHcvdbfdspvUcLmtl7kLnpw1No";
 
           const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
 

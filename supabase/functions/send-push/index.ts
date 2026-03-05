@@ -3,25 +3,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import webpush from "https://esm.sh/web-push@3.6.7";
 
 serve(async (req) => {
-    // 1. Setup VAPID details
-    const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
-    const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!vapidPublicKey || !vapidPrivateKey || !supabaseUrl || !supabaseServiceKey) {
-        return new Response(JSON.stringify({ error: "Missing environment variables" }), { status: 500 });
-    }
-
-    webpush.setVapidDetails(
-        "mailto:admin@ironcore.co",
-        vapidPublicKey,
-        vapidPrivateKey
-    );
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     try {
+        // 1. Setup VAPID details
+        const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY")?.trim();
+        const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY")?.trim();
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+        if (!vapidPublicKey || !vapidPrivateKey || !supabaseUrl || !supabaseServiceKey) {
+            console.error("Missing environment variables", { vapidPublicKey: !!vapidPublicKey, vapidPrivateKey: !!vapidPrivateKey });
+            return new Response(JSON.stringify({ error: "Missing environment variables" }), { status: 500 });
+        }
+
+        webpush.setVapidDetails(
+            "mailto:admin@ironcore.co",
+            vapidPublicKey,
+            vapidPrivateKey
+        );
+
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
         // 2. Parse Webhook Event
         const payload = await req.json();
         const { type, table, record, schema } = payload;
@@ -89,6 +90,7 @@ serve(async (req) => {
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
+        console.error("Edge function execution failed:", error.message, error.stack);
         return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     }
 });
