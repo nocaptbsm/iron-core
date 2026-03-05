@@ -6,6 +6,7 @@ import {
   CalendarCheck,
   Bell,
   Dumbbell,
+  Building2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -35,7 +36,7 @@ const mainItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { signOut } = useGym();
+  const { signOut, role, selectedGymId, setSelectedGymId } = useGym();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
@@ -88,6 +89,15 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         {!collapsed && (
           <div className="flex flex-col gap-2">
+            {role === 'super_admin' && selectedGymId && (
+              <button
+                onClick={() => setSelectedGymId(null)}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary/10 text-primary border border-primary/20 p-2 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors mb-2"
+              >
+                <Building2 className="w-4 h-4" />
+                Return to Gateway
+              </button>
+            )}
             <div className="rounded-lg bg-primary/5 border border-primary/10 p-3">
               <p className="text-[11px] text-muted-foreground">Need help?</p>
               <p className="text-[11px] text-primary font-medium mt-0.5 cursor-pointer hover:underline">View Documentation</p>

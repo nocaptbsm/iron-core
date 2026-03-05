@@ -9,6 +9,9 @@ interface GymContextType {
   customers: Customer[];
   payments: Payment[];
   session: Session | null;
+  role: "admin" | "super_admin" | null;
+  selectedGymId: string | null;
+  setSelectedGymId: (id: string | null) => void;
   addCustomer: (customer: Omit<Customer, "id" | "status">) => Promise<void>;
   addPayment: (payment: Omit<Payment, "id">) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
@@ -82,6 +85,8 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [session, setSession] = useState<Session | null>(null);
+  const [role, setRole] = useState<"admin" | "super_admin" | null>(null);
+  const [selectedGymId, setSelectedGymId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const checkApprovalStatus = async (user: User) => {
@@ -94,7 +99,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data, error } = await supabase
         .from('approved_emails')
-        .select('email')
+        .select('email, role')
         .ilike('email', user.email)
         .limit(1);
 
@@ -104,6 +109,15 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
         toast.error(`Access denied. The email ${user.email} is not approved.`);
         return false;
       }
+
+      const userRole = data[0].role as "admin" | "super_admin";
+      setRole(userRole);
+
+      // If they were previously logged in as a normal admin, make sure we clear any stray gym selection
+      if (userRole !== 'super_admin') {
+        setSelectedGymId(null);
+      }
+
       return true;
     } catch (e) {
       console.error("Error checking approval status", e);
@@ -116,8 +130,9 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchSupabaseData = async (userId: string) => {
     try {
-      const { data: cData, error: cErr } = await supabase.from("customers").select("*").eq("user_id", userId).order("joiningDate", { ascending: false });
-      const { data: pData, error: pErr } = await supabase.from("payments").select("*").eq("user_id", userId).order("paymentDate", { ascending: false });
+      const targetUserId = selectedGymId || userId;
+      const { data: cData, error: cErr } = await supabase.from("customers").select("*").eq("user_id", targetUserId).order("joiningDate", { ascending: false });
+      const { data: pData, error: pErr } = await supabase.from("payments").select("*").eq("user_id", targetUserId).order("paymentDate", { ascending: false });
 
       if (cErr) throw cErr;
       if (pErr) throw pErr;
@@ -297,8 +312,18 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // When selectedGymId changes, refetch data for that gym
+  useEffect(() => {
+    if (session?.user) {
+      setLoading(true);
+      fetchSupabaseData(session.user.id);
+    }
+  }, [selectedGymId]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
+    setRole(null);
+    setSelectedGymId(null);
   };
 
   const addCustomer = async (customer: Omit<Customer, "id" | "status">) => {
@@ -315,7 +340,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       photo: customer.photo || null,
       address: customer.address || null,
       gender: customer.gender || null,
-      user_id: session.user.id
+      user_id: selectedGymId || session.user.id
     };
 
     const { data, error } = await supabase.from("customers").insert([payload]).select().single();
@@ -377,7 +402,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       amount: Number(payment.amount),
       plan: payment.plan,
       mode: payment.mode,
-      user_id: session.user.id
+      user_id: selectedGymId || session.user.id
     };
 
     const { data, error } = await supabase.from("payments").insert([payload]).select().single();
@@ -400,7 +425,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <GymContext.Provider value={{ customers, payments, session, addCustomer, addPayment, deleteCustomer, upgradeCustomer, getStats, signOut, loading }}>
+    <GymContext.Provider value={{ customers, payments, session, addCustomer, addPayment, deleteCustomer, upgradeCustomer, getStats, signOut, loading, role, selectedGymId, setSelectedGymId }}>
       {children}
     </GymContext.Provider>
   );

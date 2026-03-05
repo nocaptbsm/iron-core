@@ -11,9 +11,10 @@ import Payments from "./pages/Payments";
 import Subscriptions from "./pages/Subscriptions";
 import Reminders from "./pages/Reminders";
 import NotFound from "./pages/NotFound";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-  const { session, loading } = useGym();
+const ProtectedRoute = ({ children, requireGym = false }: { children: JSX.Element, requireGym?: boolean }) => {
+  const { session, loading, role, selectedGymId } = useGym();
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -23,19 +24,30 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // If a subroute requires a gym to be selected, but the super admin hasn't picked one yet, kick them back to the gateway.
+  if (requireGym && role === 'super_admin' && !selectedGymId) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
 
 const AppRoutes = () => {
+  const { role, selectedGymId } = useGym();
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
-      <Route path="/add-customer" element={<ProtectedRoute><AddCustomer /></ProtectedRoute>} />
-      <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-      <Route path="/subscriptions" element={<ProtectedRoute><Subscriptions /></ProtectedRoute>} />
-      <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
+      <Route path="/" element={
+        <ProtectedRoute>
+          {role === 'super_admin' && !selectedGymId ? <SuperAdminDashboard /> : <Dashboard />}
+        </ProtectedRoute>
+      } />
+      <Route path="/customers" element={<ProtectedRoute requireGym><Customers /></ProtectedRoute>} />
+      <Route path="/add-customer" element={<ProtectedRoute requireGym><AddCustomer /></ProtectedRoute>} />
+      <Route path="/payments" element={<ProtectedRoute requireGym><Payments /></ProtectedRoute>} />
+      <Route path="/subscriptions" element={<ProtectedRoute requireGym><Subscriptions /></ProtectedRoute>} />
+      <Route path="/reminders" element={<ProtectedRoute requireGym><Reminders /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
