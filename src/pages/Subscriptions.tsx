@@ -62,11 +62,19 @@ const Subscriptions = () => {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-sm font-bold text-primary">
-                        {customer.fullName.split(' ').map(n => n[0]).join('')}
-                      </span>
-                    </div>
+                    {customer.photo ? (
+                      <img 
+                        src={customer.photo} 
+                        alt={customer.fullName}
+                        className="h-10 w-10 rounded-full object-cover border border-primary/20 shrink-0" 
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-primary">
+                          {customer.fullName.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <button
                         onClick={() => setSelectedCustomer(customer)}
