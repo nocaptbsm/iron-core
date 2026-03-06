@@ -7,6 +7,7 @@ import {
   Bell,
   Dumbbell,
   Building2,
+  Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -32,6 +33,7 @@ const mainItems = [
   { title: "Payments", url: "/payments", icon: CreditCard },
   { title: "Subscriptions", url: "/subscriptions", icon: CalendarCheck },
   { title: "Reminders", url: "/reminders", icon: Bell },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {

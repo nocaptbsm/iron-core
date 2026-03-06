@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { format, addMonths, addDays } from "date-fns";
 import { useGym } from "@/context/GymContext";
-import { Camera, X, SwitchCamera } from "lucide-react";
+import { Camera, X, SwitchCamera, Upload } from "lucide-react";
 import { Customer } from "@/lib/mockData";
 
 const planDurations: Record<string, number> = {
@@ -37,6 +37,19 @@ const AddCustomer = () => {
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhoto(reader.result as string);
+        stopCamera();
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const startCameraWithMode = useCallback(async (mode: "user" | "environment") => {
     // Stop existing stream first
@@ -111,12 +124,22 @@ const AddCustomer = () => {
       });
       toast.success(`${form.fullName} registered successfully!`);
 
-      const gymName = window.prompt("Enter the Gym Name for the WhatsApp message:", "IronCore Gym");
-      if (gymName) {
-        const message = `Welcome to *${gymName}*, ${form.fullName}! 💪\n\nYour registration is successful.\n*Plan:* ${form.plan}\n*Start Date:* ${format(new Date(form.joiningDate), "dd MMM yyyy")}\n*End Date:* ${format(new Date(endDate), "dd MMM yyyy")}\n\nLet's crush those fitness goals! 🔥`;
-        const waUrl = `https://wa.me/${form.phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`;
-        window.open(waUrl, "_blank");
+      let gymName = "IronCore Gym";
+      try {
+        const saved = localStorage.getItem("gym_settings");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.gymName) {
+            gymName = parsed.gymName;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse settings", e);
       }
+
+      const message = `Welcome to *${gymName}*, ${form.fullName}! 💪\n\nYour registration is successful.\n*Plan:* ${form.plan}\n*Start Date:* ${format(new Date(form.joiningDate), "dd MMM yyyy")}\n*End Date:* ${format(new Date(endDate), "dd MMM yyyy")}\n\nLet's crush those fitness goals! 🔥`;
+      const waUrl = `https://wa.me/${form.phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`;
+      window.open(waUrl, "_blank");
 
       navigate("/customers");
     } catch (error: unknown) {
@@ -245,7 +268,7 @@ const AddCustomer = () => {
           </DialogHeader>
           <div className="flex flex-col items-center gap-4">
             <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-lg bg-secondary aspect-[4/3] object-cover" />
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap justify-center">
               <Button type="button" onClick={capturePhoto} className="gap-2">
                 <Camera className="h-4 w-4" />
                 Take Photo
@@ -253,6 +276,17 @@ const AddCustomer = () => {
               <Button type="button" variant="outline" onClick={flipCamera} className="gap-2">
                 <SwitchCamera className="h-4 w-4" />
                 Flip
+              </Button>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+              />
+              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
+                <Upload className="h-4 w-4" />
+                Upload
               </Button>
             </div>
           </div>

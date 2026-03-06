@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { useGym } from "@/context/GymContext";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -25,8 +24,6 @@ const Payments = () => {
     mode: "",
     paymentDate: format(new Date(), "yyyy-MM-dd"),
   });
-  const [receiptTarget, setReceiptTarget] = useState<Payment | null>(null);
-  const [gymName, setGymName] = useState("");
 
   const handlePrint = () => window.print();
 
@@ -49,33 +46,78 @@ const Payments = () => {
     setForm({ customerId: "", amount: "", mode: "", paymentDate: format(new Date(), "yyyy-MM-dd") });
   };
 
-  const handleSendToWhatsApp = async () => {
-    if (!receiptTarget) return;
-
+  const handleSendToWhatsApp = async (receiptTarget: Payment) => {
     const customer = customers.find((c) => c.id === receiptTarget.customerId);
-    const phone = customer?.phone || "";
+    const customerPhone = customer?.phone || "";
 
     const doc = new jsPDF();
     const date = new Date().toLocaleDateString();
 
+    let gymSettings = { gymName: "GYM RECEIPT", address: "", phone: "", proprietor: "", gymLogo: "" };
+    try {
+      const saved = localStorage.getItem("gym_settings");
+      if (saved) {
+        gymSettings = { ...gymSettings, ...JSON.parse(saved) };
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    if (gymSettings.gymLogo) {
+      try {
+        const formatMatch = gymSettings.gymLogo.match(/^data:image\/(\w+);base64,/);
+        const format = formatMatch ? formatMatch[1].toUpperCase() : "PNG";
+        // Calculate image aspect ratio for uniform sizing
+        const imgProps = doc.getImageProperties(gymSettings.gymLogo);
+        const width = 25;
+        const height = width * (imgProps.height / imgProps.width);
+        doc.addImage(gymSettings.gymLogo, format, 15, 10, width, height);
+      } catch (error) {
+        console.error("Could not add gym logo to PDF", error);
+      }
+    }
+
     // Header
     doc.setFontSize(24);
     doc.setFont("helvetica", "bold");
-    doc.text(gymName || "GYM RECEIPT", 105, 20, { align: "center" });
+    doc.text(gymSettings.gymName || "GYM RECEIPT", 105, 20, { align: "center" });
+
+    let currentY = 28;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    if (gymSettings.address) {
+      doc.text(gymSettings.address, 105, currentY, { align: "center" });
+      currentY += 5;
+    }
+    if (gymSettings.phone) {
+      doc.text(`Phone: ${gymSettings.phone}`, 105, currentY, { align: "center" });
+      currentY += 5;
+    }
+    if (gymSettings.proprietor) {
+      doc.text(`Proprietor: ${gymSettings.proprietor}`, 105, currentY, { align: "center" });
+      currentY += 8;
+    } else {
+      currentY += 3;
+    }
 
     // Subheader
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    doc.text(`Date: ${date}`, 15, 35);
-    doc.text(`Receipt ID: #${Math.floor(Math.random() * 10000)}`, 15, 42);
+    doc.text(`Date: ${date}`, 15, currentY);
+    doc.text(`Receipt ID: #${Math.floor(Math.random() * 10000)}`, 15, currentY + 7);
+
+    currentY += 18;
 
     // Customer details
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Customer Details:", 15, 55);
+    doc.text("Customer Details:", 15, currentY);
     doc.setFont("helvetica", "normal");
-    doc.text(`Name: ${receiptTarget.customerName}`, 15, 62);
-    if (phone) doc.text(`Phone: ${phone}`, 15, 69);
+    doc.text(`Name: ${receiptTarget.customerName}`, 15, currentY + 7);
+    if (customerPhone) doc.text(`Phone: ${customerPhone}`, 15, currentY + 14);
+
+    currentY += 24;
 
     // Table data
     const tableData = [
@@ -89,7 +131,7 @@ const Payments = () => {
     ];
 
     autoTable(doc, {
-      startY: phone ? 85 : 75,
+      startY: currentY,
       head: [["Description", "Plan", "Payment Date", "Amount", "Mode"]],
       body: tableData,
       theme: "striped",
@@ -98,7 +140,7 @@ const Payments = () => {
 
     // Footer
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const finalY = (doc as any).lastAutoTable.finalY || 120;
+    const finalY = (doc as any).lastAutoTable.finalY || currentY + 30;
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
     doc.text("Thank you for your business!", 105, finalY + 20, { align: "center" });
@@ -116,8 +158,8 @@ const Payments = () => {
         });
       } else {
         doc.save(fileName);
-        if (phone) {
-          const cleanPhone = phone.replace(/\D/g, "");
+        if (customerPhone) {
+          const cleanPhone = customerPhone.replace(/\D/g, "");
           const fallbackText = encodeURIComponent(`Hi ${receiptTarget.customerName},\n\nI have just downloaded your gym receipt. Please find the attached PDF!`);
           window.open(`https://wa.me/${cleanPhone}?text=${fallbackText}`, "_blank");
         }
@@ -126,9 +168,6 @@ const Payments = () => {
       console.error('Error sharing receipt:', error);
       doc.save(fileName);
     }
-
-    setReceiptTarget(null);
-    setGymName("");
   };
 
   return (
@@ -233,7 +272,7 @@ const Payments = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setReceiptTarget(p)} className="gap-2">
+                              <DropdownMenuItem onClick={() => handleSendToWhatsApp(p)} className="gap-2">
                                 <FileText className="h-4 w-4" /> E-Bill (PDF)
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -254,39 +293,6 @@ const Payments = () => {
         )}
       </div>
 
-      {/* E-Receipt Dialog */}
-      <Dialog open={!!receiptTarget} onOpenChange={(open) => { if (!open) setReceiptTarget(null); setGymName(""); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Generate E-Bill</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="gymName">Gym Name (Optional)</Label>
-              <Input
-                id="gymName"
-                placeholder="Enter your gym name..."
-                value={gymName}
-                onChange={(e) => setGymName(e.target.value)}
-              />
-            </div>
-            <div className="text-sm text-muted-foreground border p-3 rounded-md bg-secondary/20">
-              <p className="font-medium text-foreground mb-1">Receipt for: {receiptTarget?.customerName}</p>
-              <p>Amount: ₹{receiptTarget?.amount?.toLocaleString()}</p>
-              <p>Plan: {receiptTarget?.plan}</p>
-              <p>Date: {receiptTarget?.paymentDate}</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setReceiptTarget(null); setGymName(""); }}>
-              Cancel
-            </Button>
-            <Button onClick={handleSendToWhatsApp} className="gap-2 bg-[#25D366] text-white hover:bg-[#128C7E]">
-              <FileText className="h-4 w-4" /> Share PDF to WhatsApp
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </DashboardLayout>
   );
 };
