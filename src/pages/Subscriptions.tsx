@@ -3,19 +3,28 @@ import { motion } from "framer-motion";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useGym } from "@/context/GymContext";
 import { Customer } from "@/lib/mockData";
+import { Search } from "lucide-react";
 
 type Filter = "all" | "active" | "expiring" | "expired";
 
 const Subscriptions = () => {
   const { customers, payments } = useGym();
   const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
 
-  const filtered = filter === "all" ? customers : customers.filter((c) => c.status === filter);
+  const filtered = customers.filter((c) => {
+    const matchesFilter = filter === "all" || c.status === filter;
+    const matchesSearch = 
+      c.fullName.toLowerCase().includes(search.toLowerCase()) || 
+      c.phone.includes(search);
+    return matchesFilter && matchesSearch;
+  });
 
   const filters: { key: Filter; label: string; count: number }[] = [
     { key: "all", label: "All", count: customers.length },
@@ -44,6 +53,16 @@ const Subscriptions = () => {
               <span className="ml-1.5 text-xs opacity-70">({f.count})</span>
             </Button>
           ))}
+        </div>
+
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search subscriptions by name or phone..." 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+            className="pl-10 bg-card border-border" 
+          />
         </div>
 
         {filtered.length === 0 ? (
