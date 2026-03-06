@@ -33,7 +33,82 @@ const Customers = () => {
       c.phone.includes(search)
   );
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    const doc = new jsPDF();
+    const date = new Date().toLocaleDateString();
+
+    let gymSettings = { gymName: "GYM REPORT", address: "", phone: "", proprietor: "", gymLogo: "" };
+    try {
+      const saved = localStorage.getItem("gym_settings");
+      if (saved) {
+        gymSettings = { ...gymSettings, ...JSON.parse(saved) };
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    if (gymSettings.gymLogo) {
+      try {
+        const formatMatch = gymSettings.gymLogo.match(/^data:image\/(\w+);base64,/);
+        const format = formatMatch ? formatMatch[1].toUpperCase() : "PNG";
+        const imgProps = doc.getImageProperties(gymSettings.gymLogo);
+        const width = 25;
+        const height = width * (imgProps.height / imgProps.width);
+        doc.addImage(gymSettings.gymLogo, format, 15, 10, width, height);
+      } catch (error) {
+        console.error("Could not add gym logo to PDF", error);
+      }
+    }
+
+    // Header
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text(gymSettings.gymName || "CUSTOMERS REPORT", 105, 20, { align: "center" });
+
+    let currentY = 28;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    if (gymSettings.address) {
+      doc.text(gymSettings.address, 105, currentY, { align: "center" });
+      currentY += 5;
+    }
+    if (gymSettings.phone) {
+      doc.text(`Phone: ${gymSettings.phone}`, 105, currentY, { align: "center" });
+      currentY += 5;
+    }
+    
+    currentY += 10;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("All Customers List", 15, currentY);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Generated on: ${date}`, 15, currentY + 6);
+    
+    currentY += 12;
+
+    const tableData = filtered.map(c => [
+      c.fullName,
+      c.phone,
+      c.subscriptionPlan,
+      c.subscriptionEnd,
+      c.status.toUpperCase()
+    ]);
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [["Customer Name", "Phone", "Plan", "Expires", "Status"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    doc.autoPrint();
+    const blobURL = doc.output('bloburl');
+    window.open(blobURL, '_blank');
+  };
 
   const handleSendToWhatsApp = async () => {
     if (!receiptTarget) return;
