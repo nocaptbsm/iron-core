@@ -12,18 +12,20 @@ interface GymContextType {
   role: "admin" | "super_admin" | null;
   selectedGymId: string | null;
   setSelectedGymId: (id: string | null) => void;
-  addCustomer: (customer: Omit<Customer, "id" | "status">) => Promise<void>;
+  addCustomer: (customer: Omit<Customer, "id" | "status" | "isArchived">) => Promise<void>;
   addPayment: (payment: Omit<Payment, "id">) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
+  archiveCustomer: (id: string) => Promise<void>;
   upgradeCustomer: (id: string, plan: Customer["subscriptionPlan"]) => Promise<void>;
-  getStats: () => { total: number; active: number; expiring: number; expired: number; revenue: number };
+  getStats: () => { total: number; active: number; expiring: number; expired: number; revenue: number; archived: number; };
   signOut: () => Promise<void>;
   loading: boolean;
 }
 
 const GymContext = createContext<GymContextType | undefined>(undefined);
 
-const computeStatus = (endDate: string): Customer["status"] => {
+const computeStatus = (endDate: string, isArchived?: boolean | null): Customer["status"] => {
+  if (isArchived) return "archived";
   const end = new Date(endDate);
   const now = new Date();
   const diff = differenceInDays(end, now);
@@ -44,7 +46,11 @@ const normalizeCustomer = (customer: any): Customer => ({
   subscriptionPlan: customer.subscription_plan || customer.subscriptionPlan || "1 month",
   subscriptionStart: customer.subscription_start || customer.subscriptionStart || "",
   subscriptionEnd: customer.subscription_end || customer.subscriptionEnd || "",
-  status: customer.status || computeStatus(customer.subscription_end || customer.subscriptionEnd),
+  isArchived: customer.is_archived || customer.isArchived || false,
+  status: (customer.is_archived || customer.isArchived) ? "archived" : (customer.status || computeStatus(
+    customer.subscription_end || customer.subscriptionEnd, 
+    false
+  )),
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -204,7 +210,8 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
         subscriptionPlan: c.subscriptionPlan,
         subscriptionStart: c.subscriptionStart,
         subscriptionEnd: c.subscriptionEnd,
-        status: computeStatus(c.subscriptionEnd),
+        isArchived: c.isArchived || false,
+        status: computeStatus(c.subscriptionEnd, c.isArchived),
         photo: c.photo || null,
         address: c.address || null,
         gender: c.gender || null,
@@ -336,7 +343,8 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       subscriptionPlan: customer.subscriptionPlan,
       subscriptionStart: customer.subscriptionStart,
       subscriptionEnd: customer.subscriptionEnd,
-      status: computeStatus(customer.subscriptionEnd),
+      is_archived: false,
+      status: computeStatus(customer.subscriptionEnd, false),
       photo: customer.photo || null,
       address: customer.address || null,
       gender: customer.gender || null,
@@ -363,6 +371,23 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const archiveCustomer = async (id: string) => {
+    const { data, error } = await supabase
+      .from("customers")
+      .update({ is_archived: true, status: "archived" })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (!error && data) {
+      setCustomers((prev) =>
+        prev.map((cust) => (cust.id === id ? normalizeCustomer(data) : cust))
+      );
+    } else {
+      console.error("Error archiving customer:", error);
+    }
+  };
+
   const upgradeCustomer = async (id: string, plan: Customer["subscriptionPlan"]) => {
     const c = customers.find(c => c.id === id);
     if (!c) return;
@@ -376,7 +401,8 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       subscriptionPlan: plan,
       subscriptionStart: newStart,
       subscriptionEnd: newEnd,
-      status: computeStatus(newEnd)
+      is_archived: false,
+      status: computeStatus(newEnd, false)
     };
 
     const { data, error } = await supabase.from("customers").update(payload).eq("id", id).select().single();
@@ -416,16 +442,18 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const getStats = () => {
-    const total = customers.length;
-    const active = customers.filter((c) => computeStatus(c.subscriptionEnd) === "active").length;
-    const expiring = customers.filter((c) => computeStatus(c.subscriptionEnd) === "expiring").length;
-    const expired = customers.filter((c) => computeStatus(c.subscriptionEnd) === "expired").length;
+    const unarchived = customers.filter(c => c.status !== "archived");
+    const active = unarchived.filter((c) => computeStatus(c.subscriptionEnd, c.isArchived) === "active").length;
+    const expiring = unarchived.filter((c) => computeStatus(c.subscriptionEnd, c.isArchived) === "expiring").length;
+    const expired = unarchived.filter((c) => computeStatus(c.subscriptionEnd, c.isArchived) === "expired").length;
+    const archived = customers.filter(c => c.status === "archived").length;
+    const total = active + expiring + expired + archived;
     const revenue = payments.reduce((sum, p) => sum + p.amount, 0);
-    return { total, active, expiring, expired, revenue };
+    return { total, active, expiring, expired, archived, revenue };
   };
 
   return (
-    <GymContext.Provider value={{ customers, payments, session, addCustomer, addPayment, deleteCustomer, upgradeCustomer, getStats, signOut, loading, role, selectedGymId, setSelectedGymId }}>
+    <GymContext.Provider value={{ customers, payments, session, addCustomer, addPayment, deleteCustomer, archiveCustomer, upgradeCustomer, getStats, signOut, loading, role, selectedGymId, setSelectedGymId }}>
       {children}
     </GymContext.Provider>
   );

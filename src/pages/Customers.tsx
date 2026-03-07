@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { ArchiveRestore } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
@@ -20,9 +21,10 @@ import { CustomerDetailsDialog } from "@/components/CustomerDetailsDialog";
 const plans: Customer["subscriptionPlan"][] = ["1 month", "3 months", "6 months", "12 months"];
 
 const Customers = () => {
-  const { customers, deleteCustomer, upgradeCustomer } = useGym();
+  const { customers, deleteCustomer, archiveCustomer, upgradeCustomer } = useGym();
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<Customer | null>(null);
   const [upgradeTarget, setUpgradeTarget] = useState<Customer | null>(null);
   const [detailsTarget, setDetailsTarget] = useState<Customer | null>(null);
   const [receiptTarget, setReceiptTarget] = useState<Customer | null>(null);
@@ -269,7 +271,8 @@ Thank you for your business!
                         className={
                           customer.status === 'active' ? 'bg-primary/10 text-primary border-primary/20' :
                             customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20' :
-                              'bg-destructive/10 text-destructive border-destructive/20'
+                            customer.status === 'archived' ? 'bg-secondary/40 text-muted-foreground border-border' :
+                               'bg-destructive/10 text-destructive border-destructive/20'
                         }
                       >
                         {customer.status}
@@ -289,6 +292,11 @@ Thank you for your business!
                           <DropdownMenuItem onClick={() => setUpgradeTarget(customer)} className="gap-2">
                             <ArrowUpCircle className="h-4 w-4" /> Upgrade Plan
                           </DropdownMenuItem>
+                          {customer.status === "expired" && (
+                            <DropdownMenuItem onClick={() => setArchiveTarget(customer)} className="gap-2">
+                              <ArchiveRestore className="h-4 w-4" /> Archive
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => setDeleteTarget(customer)} className="gap-2 text-destructive focus:text-destructive">
                             <Trash2 className="h-4 w-4" /> Delete
                           </DropdownMenuItem>
@@ -321,6 +329,24 @@ Thank you for your business!
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { if (deleteTarget) { deleteCustomer(deleteTarget.id); setDeleteTarget(null); } }}>
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Archive Confirmation */}
+      <AlertDialog open={!!archiveTarget} onOpenChange={(open) => { if (!open) setArchiveTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to archive <strong>{archiveTarget?.fullName}</strong>? This will remove them from the Expired lists on the Dashboard and Reminders, keeping only read-only history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (archiveTarget) { archiveCustomer(archiveTarget.id); setArchiveTarget(null); toast.success("Customer successfully archived!"); } }}>
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

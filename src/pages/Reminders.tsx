@@ -47,7 +47,7 @@ const Reminders = () => {
     : "";
 
   const filteredCustomers = customers.filter((c) =>
-    c.fullName.toLowerCase().includes(customerSearch.toLowerCase())
+    c.status !== "archived" && c.fullName.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
   const handleCopy = async () => {
@@ -200,6 +200,7 @@ const Reminders = () => {
                       </div>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === "active" ? "bg-primary/10 text-primary" :
                         c.status === "expiring" ? "bg-warning/10 text-warning" :
+                        c.status === "archived" ? "bg-secondary/40 text-muted-foreground" :
                           "bg-destructive/10 text-destructive"
                         }`}>
                         {c.status}

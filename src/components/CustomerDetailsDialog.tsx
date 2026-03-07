@@ -45,7 +45,14 @@ export function CustomerDetailsDialog({ customer, onClose }: CustomerDetailsDial
                   <h3 className="text-xl font-bold text-foreground">{customer.fullName}</h3>
                   <p className="text-sm text-muted-foreground">{customer.phone}</p>
                   <div className="mt-2 flex gap-2">
-                    <Badge variant={customer.status === "active" ? "default" : "secondary"}>
+                    <Badge 
+                      className={
+                        customer.status === 'active' ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20' :
+                        customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20 hover:bg-warning/20' :
+                        customer.status === 'archived' ? 'bg-secondary/40 text-muted-foreground border-border' :
+                        'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20'
+                      }
+                    >
                       {customer.status}
                     </Badge>
                   </div>

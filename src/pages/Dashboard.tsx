@@ -1,4 +1,4 @@
-import { Users, UserCheck, AlertTriangle, UserX, UserPlus, CreditCard } from "lucide-react";
+import { Users, UserCheck, AlertTriangle, UserX, UserPlus, CreditCard, ArchiveRestore } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import StatCard from "@/components/StatCard";
@@ -35,11 +35,12 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard title="Total Customers" value={stats.total} icon={Users} onClick={() => navigate("/customers")} />
           <StatCard title="Active" value={stats.active} icon={UserCheck} variant="primary" onClick={() => navigate("/customers")} />
           <StatCard title="Expiring Soon" value={stats.expiring} icon={AlertTriangle} variant="warning" onClick={() => navigate("/reminders")} />
           <StatCard title="Expired" value={stats.expired} icon={UserX} variant="destructive" onClick={() => navigate("/reminders")} />
+          <StatCard title="Archived" value={stats.archived} icon={ArchiveRestore} onClick={() => navigate("/customers")} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -70,8 +71,9 @@ const Dashboard = () => {
                     <Badge
                       className={
                         customer.status === 'active' ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20' :
-                          customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20 hover:bg-warning/20' :
-                            'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20'
+                        customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20 hover:bg-warning/20' :
+                        customer.status === 'archived' ? 'bg-secondary/40 text-muted-foreground border-border' :
+                        'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20'
                       }
                     >
                       {customer.status}

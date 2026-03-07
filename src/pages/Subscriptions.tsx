@@ -17,7 +17,9 @@ const Subscriptions = () => {
   const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-  const filtered = customers.filter((c) => {
+  const activeCustomers = customers.filter(c => c.status !== "archived");
+
+  const filtered = activeCustomers.filter((c) => {
     const matchesFilter = filter === "all" || c.status === filter;
     const matchesSearch = 
       c.fullName.toLowerCase().includes(search.toLowerCase()) || 
@@ -26,10 +28,10 @@ const Subscriptions = () => {
   });
 
   const filters: { key: Filter; label: string; count: number }[] = [
-    { key: "all", label: "All", count: customers.length },
-    { key: "active", label: "Active", count: customers.filter((c) => c.status === "active").length },
-    { key: "expiring", label: "Expiring Soon", count: customers.filter((c) => c.status === "expiring").length },
-    { key: "expired", label: "Expired", count: customers.filter((c) => c.status === "expired").length },
+    { key: "all", label: "All", count: activeCustomers.length },
+    { key: "active", label: "Active", count: activeCustomers.filter((c) => c.status === "active").length },
+    { key: "expiring", label: "Expiring Soon", count: activeCustomers.filter((c) => c.status === "expiring").length },
+    { key: "expired", label: "Expired", count: activeCustomers.filter((c) => c.status === "expired").length },
   ];
 
   return (
@@ -107,6 +109,7 @@ const Subscriptions = () => {
                     className={
                       customer.status === 'active' ? 'bg-primary/10 text-primary border-primary/20' :
                       customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20' :
+                      customer.status === 'archived' ? 'bg-secondary/40 text-muted-foreground border-border' :
                       'bg-destructive/10 text-destructive border-destructive/20'
                     }
                   >

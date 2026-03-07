@@ -6,7 +6,8 @@ export interface Customer {
   subscriptionPlan: '1 month' | '3 months' | '6 months' | '12 months' | 'others';
   subscriptionStart: string;
   subscriptionEnd: string;
-  status: 'active' | 'expiring' | 'expired';
+  status: 'active' | 'expiring' | 'expired' | 'archived';
+  isArchived?: boolean | null;
   photo?: string;
   address?: string;
   gender?: string;
