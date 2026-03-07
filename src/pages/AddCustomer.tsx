@@ -155,7 +155,7 @@ const AddCustomer = () => {
 
     const cleanPhone = form.phone.replace(/\D/g, "");
     const planName = form.plan === "others" ? `${form.customDays} days` : form.plan;
-    const message = `Hello ${form.fullName},\n\nWelcome to ${gymName}! Your subscription for ${planName} has been registered successfully. It is valid till ${expiryDate}.\n\nThank you!`;
+    const message = `Hello ${form.fullName},\n\nWelcome to ${gymName}! Your subscription for ${planName} has been registered successfully.\nStart Date: ${form.joiningDate}\nEnd Date: ${expiryDate}\n\nThank you!`;
 
     toast.success("Customer added successfully!");
 
