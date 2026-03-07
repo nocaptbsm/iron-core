@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Customer } from "@/lib/mockData";
+import { CustomerDetailsDialog } from "@/components/CustomerDetailsDialog";
 
 const defaultTemplate = `Hi {name}! 👋
 
@@ -29,6 +31,7 @@ const Reminders = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [copied, setCopied] = useState(false);
+  const [detailsTarget, setDetailsTarget] = useState<Customer | null>(null);
 
   const expiring = customers.filter((c) => c.status === "expiring");
   const expired = customers.filter((c) => c.status === "expired");
@@ -107,7 +110,12 @@ const Reminders = () => {
                 {expiring.map((c) => (
                   <div key={c.id} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
                     <div>
-                      <p className="text-sm font-medium text-foreground">{c.fullName}</p>
+                      <p 
+                        className="text-sm font-medium text-foreground cursor-pointer hover:underline text-primary"
+                        onClick={() => setDetailsTarget(c)}
+                      >
+                        {c.fullName}
+                      </p>
                       <p className="text-xs text-muted-foreground">{c.phone} · Expires {c.subscriptionEnd}</p>
                     </div>
                     <Button size="sm" variant="outline" className="gap-1.5 text-xs border-warning/30 text-warning hover:bg-warning/10" onClick={() => sendQuickReminder(c)}>
@@ -136,7 +144,12 @@ const Reminders = () => {
                 {expired.map((c) => (
                   <div key={c.id} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
                     <div>
-                      <p className="text-sm font-medium text-foreground">{c.fullName}</p>
+                      <p 
+                        className="text-sm font-medium text-foreground cursor-pointer hover:underline text-primary"
+                        onClick={() => setDetailsTarget(c)}
+                      >
+                        {c.fullName}
+                      </p>
                       <p className="text-xs text-muted-foreground">{c.phone} · Expired {c.subscriptionEnd}</p>
                     </div>
                     <Button size="sm" variant="outline" className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => sendQuickReminder(c)}>
@@ -229,6 +242,11 @@ const Reminders = () => {
           )}
         </DialogContent>
       </Dialog>
+      
+      <CustomerDetailsDialog
+        customer={detailsTarget}
+        onClose={() => setDetailsTarget(null)}
+      />
     </DashboardLayout>
   );
 };

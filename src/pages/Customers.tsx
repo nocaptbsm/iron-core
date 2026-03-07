@@ -15,6 +15,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { Customer } from "@/lib/mockData";
+import { CustomerDetailsDialog } from "@/components/CustomerDetailsDialog";
 
 const plans: Customer["subscriptionPlan"][] = ["1 month", "3 months", "6 months", "12 months"];
 
@@ -23,7 +24,7 @@ const Customers = () => {
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [upgradeTarget, setUpgradeTarget] = useState<Customer | null>(null);
-  const [photoTarget, setPhotoTarget] = useState<Customer | null>(null);
+  const [detailsTarget, setDetailsTarget] = useState<Customer | null>(null);
   const [receiptTarget, setReceiptTarget] = useState<Customer | null>(null);
   const [gymName, setGymName] = useState("");
 
@@ -204,8 +205,8 @@ Thank you for your business!
                         )}
                         <div>
                           <p
-                            className={`text-sm font-medium text-foreground ${customer.photo ? "cursor-pointer hover:underline" : ""}`}
-                            onClick={() => customer.photo && setPhotoTarget(customer)}
+                            className="text-sm font-medium text-foreground cursor-pointer hover:underline"
+                            onClick={() => setDetailsTarget(customer)}
                           >
                             {customer.fullName}
                           </p>
@@ -351,21 +352,11 @@ Thank you for your business!
         </DialogContent>
       </Dialog>
 
-      {/* Photo Dialog */}
-      <Dialog open={!!photoTarget} onOpenChange={(open) => { if (!open) setPhotoTarget(null); }}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>{photoTarget?.fullName}</DialogTitle>
-          </DialogHeader>
-          <div className="flex justify-center">
-            {photoTarget?.photo ? (
-              <img src={photoTarget.photo} alt={photoTarget.fullName} className="w-48 h-48 rounded-xl object-cover border border-border" />
-            ) : (
-              <p className="text-sm text-muted-foreground">No photo available</p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Details Dialog */}
+      <CustomerDetailsDialog
+        customer={detailsTarget}
+        onClose={() => setDetailsTarget(null)}
+      />
 
       {/* E-Receipt Dialog */}
       <Dialog open={!!receiptTarget} onOpenChange={(open) => { if (!open) setReceiptTarget(null); setGymName(""); }}>

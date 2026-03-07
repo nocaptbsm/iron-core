@@ -13,11 +13,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Payment } from "@/lib/mockData";
+import { Payment, Customer } from "@/lib/mockData";
+import { CustomerDetailsDialog } from "@/components/CustomerDetailsDialog";
 
 const Payments = () => {
   const { customers, payments, addPayment } = useGym();
   const [tab, setTab] = useState<"register" | "history">("register");
+  const [detailsTarget, setDetailsTarget] = useState<Customer | null>(null);
   const [form, setForm] = useState({
     customerId: "",
     amount: "",
@@ -332,7 +334,17 @@ const Payments = () => {
                         key={p.id}
                         className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
                       >
-                        <td className="p-4 text-sm font-medium text-foreground">{p.customerName}</td>
+                        <td className="p-4 text-sm font-medium text-foreground">
+                          <span 
+                            className="cursor-pointer hover:underline text-primary"
+                            onClick={() => {
+                              const customer = customers.find(c => c.id === p.customerId);
+                              if (customer) setDetailsTarget(customer);
+                            }}
+                          >
+                            {p.customerName}
+                          </span>
+                        </td>
                         <td className="p-4 text-sm text-muted-foreground hidden sm:table-cell">{p.paymentDate}</td>
                         <td className="p-4 text-sm text-foreground hidden md:table-cell">{p.plan}</td>
                         <td className="p-4 text-sm font-semibold text-primary">₹{p.amount.toLocaleString()}</td>
@@ -368,6 +380,10 @@ const Payments = () => {
         )}
       </div>
 
+      <CustomerDetailsDialog
+        customer={detailsTarget}
+        onClose={() => setDetailsTarget(null)}
+      />
     </DashboardLayout>
   );
 };
