@@ -48,7 +48,7 @@ const normalizeCustomer = (customer: any): Customer => ({
   subscriptionEnd: customer.subscription_end || customer.subscriptionEnd || "",
   isArchived: customer.is_archived || customer.isArchived || false,
   status: (customer.is_archived || customer.isArchived) ? "archived" : (customer.status || computeStatus(
-    customer.subscription_end || customer.subscriptionEnd, 
+    customer.subscription_end || customer.subscriptionEnd,
     false
   )),
 });
@@ -137,16 +137,28 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   const fetchSupabaseData = async (userId: string) => {
     try {
       const targetUserId = selectedGymId || userId;
-      const { data: cData, error: cErr } = await supabase.from("customers").select("*").eq("user_id", targetUserId).order("joiningDate", { ascending: false });
-      const { data: pData, error: pErr } = await supabase.from("payments").select("*").eq("user_id", targetUserId).order("paymentDate", { ascending: false });
 
-      if (cErr) throw cErr;
-      if (pErr) throw pErr;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const timeoutPromise = new Promise<any>((_, reject) =>
+        setTimeout(() => reject(new Error("Database fetch timed out")), 8000)
+      );
 
-      setCustomers((cData || []).map(normalizeCustomer));
-      setPayments((pData || []).map(normalizePayment));
+      const fetchCustomers = supabase.from("customers").select("*").eq("user_id", targetUserId).order("joiningDate", { ascending: false });
+      const fetchPayments = supabase.from("payments").select("*").eq("user_id", targetUserId).order("paymentDate", { ascending: false });
+
+      const [cRes, pRes] = await Promise.all([
+        Promise.race([fetchCustomers, timeoutPromise]),
+        Promise.race([fetchPayments, timeoutPromise])
+      ]);
+
+      if (cRes.error) throw cRes.error;
+      if (pRes.error) throw pRes.error;
+
+      setCustomers((cRes.data || []).map(normalizeCustomer));
+      setPayments((pRes.data || []).map(normalizePayment));
     } catch (error) {
       console.error("Error fetching from Supabase:", error);
+      toast.error("Network error: Failed to sync data with the server.");
     } finally {
       setLoading(false);
     }
@@ -293,10 +305,12 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (event === 'SIGNED_IN' && currentSession?.user) {
-          setLoading(true);
+          setSession((prevSession) => {
+            if (!prevSession) setLoading(true);
+            return currentSession;
+          });
           const isApproved = await checkApprovalStatus(currentSession.user);
           if (isApproved) {
-            setSession(currentSession);
             await fetchSupabaseData(currentSession.user.id);
             subscribeToPush(currentSession.user.id);
           } else {
@@ -317,6 +331,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
         authSubscription.unsubscribe();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // When selectedGymId changes, refetch data for that gym
@@ -325,6 +340,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       fetchSupabaseData(session.user.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGymId]);
 
   const signOut = async () => {
