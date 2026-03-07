@@ -153,8 +153,7 @@ Thank you for your business!
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Customers</h1>
@@ -313,7 +312,6 @@ Thank you for your business!
             </div>
           )}
         </div>
-      </div>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
@@ -415,7 +413,7 @@ Thank you for your business!
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </div>
   );
 };
 
