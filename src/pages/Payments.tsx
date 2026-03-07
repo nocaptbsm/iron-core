@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MoreHorizontal, FileText, Printer } from "lucide-react";
+import { MoreHorizontal, FileText, Printer, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -149,147 +149,32 @@ const Payments = () => {
     setTab("history");
   };
 
-  const handleDownloadEBill = async (payment: Payment) => {
-    setIsGeneratingPDF(true);
-    await new Promise(r => setTimeout(r, 50)); // Allow UI to update loading state
+  const handleSendWhatsAppEBill = (payment: Payment) => {
+    const customer = customers.find(c => c.id === payment.customerId);
+    if (!customer) {
+      toast.error("Customer not found");
+      return;
+    }
 
+    let gymSettings = { gymName: "Our Gym", phone: "", address: "" };
     try {
-      const { default: jsPDF } = await import("jspdf");
-      const { default: autoTable } = await import("jspdf-autotable");
-
-      const customer = customers.find(c => c.id === payment.customerId);
-      if (!customer) {
-        toast.error("Customer not found");
-        return;
+      const saved = localStorage.getItem("gym_settings");
+      if (saved) {
+        gymSettings = { ...gymSettings, ...JSON.parse(saved) };
       }
+    } catch (e) {
+      console.error(e);
+    }
 
-      let gymSettings = { gymName: "Iron Core Gym", phone: "", address: "" };
-      try {
-        const saved = localStorage.getItem("gym_settings");
-        if (saved) {
-          gymSettings = { ...gymSettings, ...JSON.parse(saved) };
-        }
-      } catch (e) {
-        console.error(e);
-      }
+    const cleanPhone = customer.phone.replace(/\D/g, "");
+    const receiptNo = `REC-${format(new Date(payment.paymentDate), "yyyyMMdd")}-${payment.id.substring(0, 4)}`;
+    const message = `Hello ${customer.fullName},\n\nWe have received your payment of Rs. ${payment.amount.toLocaleString()} for your ${customer.subscriptionPlan} subscription at ${gymSettings.gymName}.\n\nReceipt No: ${receiptNo}\nDate: ${payment.paymentDate}\nMode: ${payment.mode}\n\nThank you!`;
 
-      const cleanPhone = customer.phone.replace(/\D/g, "");
-      const dateStr = format(new Date(), "yyyyMMdd_HHmmss");
-      const fileName = `Receipt_${customer.fullName.replace(/\s+/g, "_")}_${dateStr}.pdf`;
-
-      const doc = new jsPDF();
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(22);
-      doc.setTextColor(30, 41, 59);
-      doc.text(gymSettings.gymName.toUpperCase(), 105, 25, { align: "center" });
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-
-      let yPos = 32;
-      if (gymSettings.address) {
-        doc.text(gymSettings.address, 105, yPos, { align: "center" });
-        yPos += 5;
-      }
-      if (gymSettings.phone) {
-        doc.text(`Tel: ${gymSettings.phone}`, 105, yPos, { align: "center" });
-        yPos += 8;
-      }
-
-      doc.setDrawColor(226, 232, 240);
-      doc.line(20, yPos, 190, yPos);
-      yPos += 12;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text("PAYMENT RECEIPT", 105, yPos, { align: "center" });
-      yPos += 12;
-
-      const receiptNo = `REC-${format(new Date(), "yyyyMMdd")}-${payment.id.substring(0, 4)}`;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(71, 85, 105);
-      doc.text(`Receipt No: ${receiptNo}`, 20, yPos);
-      doc.text(`Date: ${payment.paymentDate}`, 190, yPos, { align: "right" });
-      yPos += 15;
-
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(20, yPos, 170, 30, 3, 3, "F");
-
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(15, 23, 42);
-      doc.text("Billed To:", 25, yPos + 8);
-
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(51, 65, 85);
-      doc.text(customer.fullName, 25, yPos + 15);
-      doc.text(`Phone: ${customer.phone}`, 25, yPos + 22);
-
-      yPos += 45;
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Description', 'Payment Mode', 'Amount']],
-        body: [
-          [
-            `Gym Subscription - ${customer.subscriptionPlan}`,
-            payment.mode,
-            `Rs. ${payment.amount.toLocaleString()}`
-          ]
-        ],
-        theme: 'plain',
-        headStyles: {
-          fillColor: [241, 245, 249],
-          textColor: [15, 23, 42],
-          fontStyle: 'bold',
-          halign: 'left'
-        },
-        bodyStyles: {
-          textColor: [51, 65, 85],
-          halign: 'left'
-        },
-        columnStyles: {
-          2: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] }
-        },
-        didDrawCell: function (data) {
-          if (data.row.index === data.table.body.length - 1 && data.row.section === 'body') {
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.5);
-            doc.line(
-              data.cell.x,
-              data.cell.y + data.cell.height,
-              data.cell.x + data.cell.width,
-              data.cell.y + data.cell.height
-            );
-          }
-        }
-      });
-
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - jspdf-autotable extends jsPDF but types might not be perfectly synced
-      const finalY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Total Paid:", 140, finalY);
-      doc.text(`Rs. ${payment.amount.toLocaleString()}`, 190, finalY, { align: "right" });
-
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(9);
-      doc.setTextColor(148, 163, 184);
-      doc.text("Thank you for choosing us!", 105, 280, { align: "center" });
-
-      doc.save(fileName);
-      toast.success("Receipt downloaded successfully.");
-    } catch (error) {
-      console.error("PDF Generation failed:", error);
-      toast.error("Failed to generate receipt.");
-    } finally {
-      setIsGeneratingPDF(false);
+    if (cleanPhone) {
+      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+      toast.success("E-Bill sent to WhatsApp!");
+    } else {
+      toast.error("Customer does not have a valid phone number.");
     }
   };
 
@@ -404,9 +289,9 @@ const Payments = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleDownloadEBill(p)} className="gap-2" disabled={isGeneratingPDF}>
-                              {isGeneratingPDF ? <div className="h-4 w-4 rounded-full border-2 border-current border-r-transparent animate-spin" /> : <FileText className="h-4 w-4" />}
-                              {isGeneratingPDF ? "Generating..." : "Download E-Bill (PDF)"}
+                            <DropdownMenuItem onClick={() => handleSendWhatsAppEBill(p)} className="gap-2">
+                              <Send className="h-4 w-4" />
+                              Send E-Bill (WhatsApp)
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
