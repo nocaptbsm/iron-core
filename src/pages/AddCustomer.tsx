@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { format, addMonths, addDays } from "date-fns";
 import { useGym } from "@/context/GymContext";
 import { Camera, X, SwitchCamera, Upload } from "lucide-react";
+import { Customer } from "@/lib/mockData";
 
 const planDurations: Record<string, number> = {
   "1 month": 1,
@@ -105,7 +106,7 @@ const AddCustomer = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!form.fullName || !form.phone || !form.joiningDate || !form.plan || !form.gender) {
       toast.error("Please fill all required fields");
       return;
@@ -133,15 +134,36 @@ const AddCustomer = () => {
       phone: form.phone,
       address: form.address,
       joiningDate: form.joiningDate,
-      subscriptionPlan: form.plan === "others" ? `${form.customDays} days` : form.plan,
+      subscriptionPlan: (form.plan === "others" ? `${form.customDays} days` : form.plan) as Customer["subscriptionPlan"],
       subscriptionStart: form.joiningDate,
       subscriptionEnd: expiryDate,
-      status: "active",
       photo: photo || undefined,
       gender: form.gender,
     });
-    
+
+    // Fetch gym name
+    let gymName = "our Gym";
+    try {
+      const saved = localStorage.getItem("gym_settings");
+      if (saved) {
+        const settings = JSON.parse(saved);
+        if (settings.gymName) gymName = settings.gymName;
+      }
+    } catch (e) {
+      console.error("Failed to parse gym settings for WhatsApp message", e);
+    }
+
+    const cleanPhone = form.phone.replace(/\D/g, "");
+    const planName = form.plan === "others" ? `${form.customDays} days` : form.plan;
+    const message = `Hello ${form.fullName},\n\nWelcome to ${gymName}! Your subscription for ${planName} has been registered successfully. It is valid till ${expiryDate}.\n\nThank you!`;
+
     toast.success("Customer added successfully!");
+
+    // Open WhatsApp in a new tab
+    if (cleanPhone) {
+      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+    }
+
     navigate("/customers");
   };
 
