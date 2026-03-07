@@ -10,8 +10,6 @@ import { useGym } from "@/context/GymContext";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { Payment, Customer } from "@/lib/mockData";
 import { CustomerDetailsDialog } from "@/components/CustomerDetailsDialog";
 
@@ -19,6 +17,7 @@ const Payments = () => {
   const { customers, payments, addPayment } = useGym();
   const [tab, setTab] = useState<"register" | "history">("register");
   const [detailsTarget, setDetailsTarget] = useState<Customer | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [form, setForm] = useState({
     customerId: "",
     amount: "",
@@ -26,88 +25,101 @@ const Payments = () => {
     paymentDate: format(new Date(), "yyyy-MM-dd"),
   });
 
-  const handlePrint = () => {
-    const doc = new jsPDF();
-    const date = new Date().toLocaleDateString();
-
-    let gymSettings = { gymName: "GYM REPORT", address: "", phone: "", proprietor: "", gymLogo: "" };
+  const handlePrint = async () => {
+    setIsGeneratingPDF(true);
+    await new Promise(r => setTimeout(r, 50));
     try {
-      const saved = localStorage.getItem("gym_settings");
-      if (saved) {
-        gymSettings = { ...gymSettings, ...JSON.parse(saved) };
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      const doc = new jsPDF();
+      const date = new Date().toLocaleDateString();
+
+      let gymSettings = { gymName: "GYM REPORT", address: "", phone: "", proprietor: "", gymLogo: "" };
+      try {
+        const saved = localStorage.getItem("gym_settings");
+        if (saved) {
+          gymSettings = { ...gymSettings, ...JSON.parse(saved) };
+        }
+      } catch (e) {
+        console.error(e);
       }
+
+      if (gymSettings.gymLogo) {
+        try {
+          const formatMatch = gymSettings.gymLogo.match(/^data:image\/(\w+);base64,/);
+          const format = formatMatch ? formatMatch[1].toUpperCase() : "PNG";
+          const imgProps = doc.getImageProperties(gymSettings.gymLogo);
+          const width = 25;
+          const height = width * (imgProps.height / imgProps.width);
+          doc.addImage(gymSettings.gymLogo, format, 15, 10, width, height);
+        } catch (error) {
+          console.error("Could not add gym logo to PDF", error);
+        }
+      }
+
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text(gymSettings.gymName || "PAYMENTS REPORT", 105, 20, { align: "center" });
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated on: ${date}`, 105, 28, { align: "center" });
+
+      if (gymSettings.address) {
+        doc.text(gymSettings.address, 105, 34, { align: "center" });
+      }
+
+      if (gymSettings.phone) {
+        doc.text(`Contact: ${gymSettings.phone}`, 105, 40, { align: "center" });
+      }
+
+      doc.setDrawColor(200);
+      doc.line(15, 45, 195, 45);
+
+      autoTable(doc, {
+        startY: 55,
+        head: [['Date', 'Customer', 'Plan', 'Mode', 'Amount']],
+        body: payments.map(p => [
+          p.paymentDate,
+          p.customerName,
+          p.plan,
+          p.mode,
+          `Rs. ${p.amount.toLocaleString()}`
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 5 },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        columnStyles: {
+          4: { halign: 'right', fontStyle: 'bold' }
+        },
+        foot: [['', '', '', 'Total:', `Rs. ${payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}`]],
+        footStyles: { fillColor: [236, 240, 241], textColor: [44, 62, 80], fontStyle: 'bold' }
+      });
+
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - jsPDF internal interface properties are not fully typed
+      const pageCount = (doc as jsPDF & { internal: { getNumberOfPages: () => number, pageSize: { width: number, height: number } } }).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(
+          `Page ${i} of ${pageCount}`,
+          doc.internal.pageSize.width / 2,
+          doc.internal.pageSize.height - 10,
+          { align: "center" }
+        );
+      }
+
+      doc.save(`Payments_Report_${date.replace(/\//g, '-')}.pdf`);
+      toast.success("Payments report downloaded");
     } catch (e) {
       console.error(e);
+      toast.error("Failed to generate report.");
+    } finally {
+      setIsGeneratingPDF(false);
     }
-
-    if (gymSettings.gymLogo) {
-      try {
-        const formatMatch = gymSettings.gymLogo.match(/^data:image\/(\w+);base64,/);
-        const format = formatMatch ? formatMatch[1].toUpperCase() : "PNG";
-        const imgProps = doc.getImageProperties(gymSettings.gymLogo);
-        const width = 25;
-        const height = width * (imgProps.height / imgProps.width);
-        doc.addImage(gymSettings.gymLogo, format, 15, 10, width, height);
-      } catch (error) {
-        console.error("Could not add gym logo to PDF", error);
-      }
-    }
-
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "bold");
-    doc.text(gymSettings.gymName || "PAYMENTS REPORT", 105, 20, { align: "center" });
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Generated on: ${date}`, 105, 28, { align: "center" });
-
-    if (gymSettings.address) {
-      doc.text(gymSettings.address, 105, 34, { align: "center" });
-    }
-    
-    if (gymSettings.phone) {
-      doc.text(`Contact: ${gymSettings.phone}`, 105, 40, { align: "center" });
-    }
-
-    doc.setDrawColor(200);
-    doc.line(15, 45, 195, 45);
-
-    autoTable(doc, {
-      startY: 55,
-      head: [['Date', 'Customer', 'Plan', 'Mode', 'Amount']],
-      body: payments.map(p => [
-        p.paymentDate,
-        p.customerName,
-        p.plan,
-        p.mode,
-        `Rs. ${p.amount.toLocaleString()}`
-      ]),
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
-      styles: { fontSize: 10, cellPadding: 5 },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      columnStyles: {
-        4: { halign: 'right', fontStyle: 'bold' } 
-      },
-      foot: [['', '', '', 'Total:', `Rs. ${payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}`]],
-      footStyles: { fillColor: [236, 240, 241], textColor: [44, 62, 80], fontStyle: 'bold' }
-    });
-
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(
-        `Page ${i} of ${pageCount}`,
-        doc.internal.pageSize.width / 2,
-        doc.internal.pageSize.height - 10,
-        { align: "center" }
-      );
-    }
-
-    doc.save(`Payments_Report_${date.replace(/\//g, '-')}.pdf`);
-    toast.success("Payments report downloaded");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -131,7 +143,7 @@ const Payments = () => {
       paymentDate: form.paymentDate,
       plan: customer.subscriptionPlan,
     });
-    
+
     toast.success("Payment registered successfully!");
     setForm({ customerId: "", amount: "", mode: "", paymentDate: format(new Date(), "yyyy-MM-dd") });
     setTab("history");
@@ -159,7 +171,7 @@ const Payments = () => {
     const fileName = `Receipt_${customer.fullName.replace(/\s+/g, "_")}_${dateStr}.pdf`;
 
     const doc = new jsPDF();
-    
+
     try {
       const savedSettings = localStorage.getItem("gym_settings");
       if (savedSettings) {
@@ -179,13 +191,13 @@ const Payments = () => {
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
-    doc.setTextColor(30, 41, 59); 
+    doc.setTextColor(30, 41, 59);
     doc.text(gymSettings.gymName.toUpperCase(), 105, 25, { align: "center" });
-    
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    
+
     let yPos = 32;
     if (gymSettings.address) {
       doc.text(gymSettings.address, 105, yPos, { align: "center" });
@@ -196,17 +208,17 @@ const Payments = () => {
       yPos += 8;
     }
 
-    doc.setDrawColor(226, 232, 240); 
+    doc.setDrawColor(226, 232, 240);
     doc.line(20, yPos, 190, yPos);
     yPos += 12;
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42); 
+    doc.setTextColor(15, 23, 42);
     doc.text("PAYMENT RECEIPT", 105, yPos, { align: "center" });
     yPos += 12;
 
-    const receiptNo = `REC-${format(new Date(), "yyyyMMdd")}-${payment.id.substring(0,4)}`;
+    const receiptNo = `REC-${format(new Date(), "yyyyMMdd")}-${payment.id.substring(0, 4)}`;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(71, 85, 105);
@@ -216,16 +228,16 @@ const Payments = () => {
 
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(20, yPos, 170, 30, 3, 3, "F");
-    
+
     doc.setFont("helvetica", "bold");
     doc.setTextColor(15, 23, 42);
     doc.text("Billed To:", 25, yPos + 8);
-    
+
     doc.setFont("helvetica", "normal");
     doc.setTextColor(51, 65, 85);
     doc.text(customer.fullName, 25, yPos + 15);
     doc.text(`Phone: ${customer.phone}`, 25, yPos + 22);
-    
+
     yPos += 45;
 
     autoTable(doc, {
@@ -239,8 +251,8 @@ const Payments = () => {
         ]
       ],
       theme: 'plain',
-      headStyles: { 
-        fillColor: [241, 245, 249], 
+      headStyles: {
+        fillColor: [241, 245, 249],
         textColor: [15, 23, 42],
         fontStyle: 'bold',
         halign: 'left'
@@ -252,21 +264,23 @@ const Payments = () => {
       columnStyles: {
         2: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] }
       },
-      didDrawCell: function(data) {
+      didDrawCell: function (data) {
         if (data.row.index === data.table.body.length - 1 && data.row.section === 'body') {
           doc.setDrawColor(226, 232, 240);
           doc.setLineWidth(0.5);
           doc.line(
-            data.cell.x, 
-            data.cell.y + data.cell.height, 
-            data.cell.x + data.cell.width, 
+            data.cell.x,
+            data.cell.y + data.cell.height,
+            data.cell.x + data.cell.width,
             data.cell.y + data.cell.height
           );
         }
       }
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 15;
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - jspdf-autotable extends jsPDF but types might not be perfectly synced
+    const finalY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
@@ -281,14 +295,14 @@ const Payments = () => {
 
     try {
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
+
       const pdfBlob = doc.output('blob');
-      
+
       if (isMobile && navigator.canShare) {
         const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-        
+
         const messageText = `Hello ${customer.fullName},\n\nHere is your payment receipt of Rs. ${payment.amount} for your ${customer.subscriptionPlan} plan at ${gymSettings.gymName}.\n\nThank you!`;
-        
+
         if (navigator.canShare({ files: [file], title: 'Payment Receipt', text: messageText })) {
           await navigator.share({
             files: [file],
@@ -302,16 +316,18 @@ const Payments = () => {
         }
       } else {
         doc.save(fileName);
-        
+
         const fallbackText = encodeURIComponent(`Hello ${customer.fullName},\n\nYour payment of Rs. ${payment.amount} for your ${customer.subscriptionPlan} plan at ${gymSettings.gymName} was received successfully.\n\nI have downloaded the receipt to my device and will share it with you shortly.\n\nThank you!`);
-        
+
         if (cleanPhone) {
           window.open(`https://wa.me/${cleanPhone}?text=${fallbackText}`, "_blank");
         }
       }
     } catch (error) {
-      console.error('Error sharing receipt:', error);
-      doc.save(fileName);
+      console.error("PDF Generation failed:", error);
+      toast.error("Failed to generate receipt.");
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -377,9 +393,9 @@ const Payments = () => {
       ) : (
         <div className="space-y-4">
           <div className="flex justify-end print:hidden">
-            <Button variant="outline" size="sm" className="gap-2" onClick={handlePrint}>
-              <Printer className="h-4 w-4" />
-              Print All Payments
+            <Button variant="outline" size="sm" className="gap-2" onClick={handlePrint} disabled={isGeneratingPDF}>
+              {isGeneratingPDF ? <div className="h-4 w-4 rounded-full border-2 border-primary border-r-transparent animate-spin" /> : <Printer className="h-4 w-4" />}
+              {isGeneratingPDF ? "Generating..." : "Print All Payments"}
             </Button>
           </div>
           <div className="rounded-xl border border-border bg-card overflow-hidden print:overflow-visible print:border-none">
@@ -402,7 +418,7 @@ const Payments = () => {
                       className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
                     >
                       <td className="p-4 text-sm font-medium text-foreground">
-                        <span 
+                        <span
                           className="cursor-pointer hover:underline text-primary"
                           onClick={() => {
                             const customer = customers.find(c => c.id === p.customerId);
@@ -426,8 +442,9 @@ const Payments = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleSendToWhatsApp(p)} className="gap-2">
-                              <FileText className="h-4 w-4" /> E-Bill (PDF)
+                            <DropdownMenuItem onClick={() => handleSendToWhatsApp(p)} className="gap-2" disabled={isGeneratingPDF}>
+                              {isGeneratingPDF ? <div className="h-4 w-4 rounded-full border-2 border-current border-r-transparent animate-spin" /> : <FileText className="h-4 w-4" />}
+                              {isGeneratingPDF ? "Generating..." : "E-Bill (PDF)"}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
