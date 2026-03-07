@@ -149,180 +149,142 @@ const Payments = () => {
     setTab("history");
   };
 
-  const handleSendToWhatsApp = async (payment: Payment) => {
-    const customer = customers.find(c => c.id === payment.customerId);
-    if (!customer) {
-      toast.error("Customer not found");
-      return;
-    }
-
-    let gymSettings = { gymName: "Iron Core Gym", phone: "", address: "" };
-    try {
-      const saved = localStorage.getItem("gym_settings");
-      if (saved) {
-        gymSettings = { ...gymSettings, ...JSON.parse(saved) };
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    const cleanPhone = customer.phone.replace(/\D/g, "");
-    const dateStr = format(new Date(), "yyyyMMdd_HHmmss");
-    const fileName = `Receipt_${customer.fullName.replace(/\s+/g, "_")}_${dateStr}.pdf`;
-
-    const doc = new jsPDF();
+  const handleDownloadEBill = async (payment: Payment) => {
+    setIsGeneratingPDF(true);
+    await new Promise(r => setTimeout(r, 50)); // Allow UI to update loading state
 
     try {
-      const savedSettings = localStorage.getItem("gym_settings");
-      if (savedSettings) {
-        const settings = JSON.parse(savedSettings);
-        if (settings.gymLogo) {
-          const formatMatch = settings.gymLogo.match(/^data:image\/(\w+);base64,/);
-          const format = formatMatch ? formatMatch[1].toUpperCase() : "PNG";
-          const imgProps = doc.getImageProperties(settings.gymLogo);
-          const width = 30;
-          const height = width * (imgProps.height / imgProps.width);
-          doc.addImage(settings.gymLogo, format, 20, 15, width, height);
-        }
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+
+      const customer = customers.find(c => c.id === payment.customerId);
+      if (!customer) {
+        toast.error("Customer not found");
+        return;
       }
-    } catch (error) {
-      console.error("Could not add gym logo to PDF", error);
-    }
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.setTextColor(30, 41, 59);
-    doc.text(gymSettings.gymName.toUpperCase(), 105, 25, { align: "center" });
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-
-    let yPos = 32;
-    if (gymSettings.address) {
-      doc.text(gymSettings.address, 105, yPos, { align: "center" });
-      yPos += 5;
-    }
-    if (gymSettings.phone) {
-      doc.text(`Tel: ${gymSettings.phone}`, 105, yPos, { align: "center" });
-      yPos += 8;
-    }
-
-    doc.setDrawColor(226, 232, 240);
-    doc.line(20, yPos, 190, yPos);
-    yPos += 12;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42);
-    doc.text("PAYMENT RECEIPT", 105, yPos, { align: "center" });
-    yPos += 12;
-
-    const receiptNo = `REC-${format(new Date(), "yyyyMMdd")}-${payment.id.substring(0, 4)}`;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(71, 85, 105);
-    doc.text(`Receipt No: ${receiptNo}`, 20, yPos);
-    doc.text(`Date: ${payment.paymentDate}`, 190, yPos, { align: "right" });
-    yPos += 15;
-
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(20, yPos, 170, 30, 3, 3, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(15, 23, 42);
-    doc.text("Billed To:", 25, yPos + 8);
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(51, 65, 85);
-    doc.text(customer.fullName, 25, yPos + 15);
-    doc.text(`Phone: ${customer.phone}`, 25, yPos + 22);
-
-    yPos += 45;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Description', 'Payment Mode', 'Amount']],
-      body: [
-        [
-          `Gym Subscription - ${customer.subscriptionPlan}`,
-          payment.mode,
-          `Rs. ${payment.amount.toLocaleString()}`
-        ]
-      ],
-      theme: 'plain',
-      headStyles: {
-        fillColor: [241, 245, 249],
-        textColor: [15, 23, 42],
-        fontStyle: 'bold',
-        halign: 'left'
-      },
-      bodyStyles: {
-        textColor: [51, 65, 85],
-        halign: 'left'
-      },
-      columnStyles: {
-        2: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] }
-      },
-      didDrawCell: function (data) {
-        if (data.row.index === data.table.body.length - 1 && data.row.section === 'body') {
-          doc.setDrawColor(226, 232, 240);
-          doc.setLineWidth(0.5);
-          doc.line(
-            data.cell.x,
-            data.cell.y + data.cell.height,
-            data.cell.x + data.cell.width,
-            data.cell.y + data.cell.height
-          );
+      let gymSettings = { gymName: "Iron Core Gym", phone: "", address: "" };
+      try {
+        const saved = localStorage.getItem("gym_settings");
+        if (saved) {
+          gymSettings = { ...gymSettings, ...JSON.parse(saved) };
         }
+      } catch (e) {
+        console.error(e);
       }
-    });
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - jspdf-autotable extends jsPDF but types might not be perfectly synced
-    const finalY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
+      const cleanPhone = customer.phone.replace(/\D/g, "");
+      const dateStr = format(new Date(), "yyyyMMdd_HHmmss");
+      const fileName = `Receipt_${customer.fullName.replace(/\s+/g, "_")}_${dateStr}.pdf`;
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Total Paid:", 140, finalY);
-    doc.text(`Rs. ${payment.amount.toLocaleString()}`, 190, finalY, { align: "right" });
+      const doc = new jsPDF();
 
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.setTextColor(148, 163, 184);
-    doc.text("Thank you for choosing us!", 105, 280, { align: "center" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(30, 41, 59);
+      doc.text(gymSettings.gymName.toUpperCase(), 105, 25, { align: "center" });
 
-    try {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
 
-      const pdfBlob = doc.output('blob');
-
-      if (isMobile && navigator.canShare) {
-        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-
-        const messageText = `Hello ${customer.fullName},\n\nHere is your payment receipt of Rs. ${payment.amount} for your ${customer.subscriptionPlan} plan at ${gymSettings.gymName}.\n\nThank you!`;
-
-        if (navigator.canShare({ files: [file], title: 'Payment Receipt', text: messageText })) {
-          await navigator.share({
-            files: [file],
-            title: 'Payment Receipt',
-            text: messageText
-          });
-          toast.success("Opened share dialog");
-        } else {
-          doc.save(fileName);
-          toast.info("Receipt downloaded. You can now share it manually.");
-        }
-      } else {
-        doc.save(fileName);
-
-        const fallbackText = encodeURIComponent(`Hello ${customer.fullName},\n\nYour payment of Rs. ${payment.amount} for your ${customer.subscriptionPlan} plan at ${gymSettings.gymName} was received successfully.\n\nI have downloaded the receipt to my device and will share it with you shortly.\n\nThank you!`);
-
-        if (cleanPhone) {
-          window.open(`https://wa.me/${cleanPhone}?text=${fallbackText}`, "_blank");
-        }
+      let yPos = 32;
+      if (gymSettings.address) {
+        doc.text(gymSettings.address, 105, yPos, { align: "center" });
+        yPos += 5;
       }
+      if (gymSettings.phone) {
+        doc.text(`Tel: ${gymSettings.phone}`, 105, yPos, { align: "center" });
+        yPos += 8;
+      }
+
+      doc.setDrawColor(226, 232, 240);
+      doc.line(20, yPos, 190, yPos);
+      yPos += 12;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42);
+      doc.text("PAYMENT RECEIPT", 105, yPos, { align: "center" });
+      yPos += 12;
+
+      const receiptNo = `REC-${format(new Date(), "yyyyMMdd")}-${payment.id.substring(0, 4)}`;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Receipt No: ${receiptNo}`, 20, yPos);
+      doc.text(`Date: ${payment.paymentDate}`, 190, yPos, { align: "right" });
+      yPos += 15;
+
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(20, yPos, 170, 30, 3, 3, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text("Billed To:", 25, yPos + 8);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(51, 65, 85);
+      doc.text(customer.fullName, 25, yPos + 15);
+      doc.text(`Phone: ${customer.phone}`, 25, yPos + 22);
+
+      yPos += 45;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Description', 'Payment Mode', 'Amount']],
+        body: [
+          [
+            `Gym Subscription - ${customer.subscriptionPlan}`,
+            payment.mode,
+            `Rs. ${payment.amount.toLocaleString()}`
+          ]
+        ],
+        theme: 'plain',
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        bodyStyles: {
+          textColor: [51, 65, 85],
+          halign: 'left'
+        },
+        columnStyles: {
+          2: { halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] }
+        },
+        didDrawCell: function (data) {
+          if (data.row.index === data.table.body.length - 1 && data.row.section === 'body') {
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.5);
+            doc.line(
+              data.cell.x,
+              data.cell.y + data.cell.height,
+              data.cell.x + data.cell.width,
+              data.cell.y + data.cell.height
+            );
+          }
+        }
+      });
+
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - jspdf-autotable extends jsPDF but types might not be perfectly synced
+      const finalY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(15, 23, 42);
+      doc.text("Total Paid:", 140, finalY);
+      doc.text(`Rs. ${payment.amount.toLocaleString()}`, 190, finalY, { align: "right" });
+
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Thank you for choosing us!", 105, 280, { align: "center" });
+
+      doc.save(fileName);
+      toast.success("Receipt downloaded successfully.");
     } catch (error) {
       console.error("PDF Generation failed:", error);
       toast.error("Failed to generate receipt.");
@@ -442,9 +404,9 @@ const Payments = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleSendToWhatsApp(p)} className="gap-2" disabled={isGeneratingPDF}>
+                            <DropdownMenuItem onClick={() => handleDownloadEBill(p)} className="gap-2" disabled={isGeneratingPDF}>
                               {isGeneratingPDF ? <div className="h-4 w-4 rounded-full border-2 border-current border-r-transparent animate-spin" /> : <FileText className="h-4 w-4" />}
-                              {isGeneratingPDF ? "Generating..." : "E-Bill (PDF)"}
+                              {isGeneratingPDF ? "Generating..." : "Download E-Bill (PDF)"}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
