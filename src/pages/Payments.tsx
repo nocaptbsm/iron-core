@@ -168,7 +168,9 @@ const Payments = () => {
 
     const cleanPhone = customer.phone.replace(/\D/g, "");
     const receiptNo = `REC-${format(new Date(payment.paymentDate), "yyyyMMdd")}-${payment.id.substring(0, 4)}`;
-    const message = `Hello ${customer.fullName},\n\nWe have received your payment of Rs. ${payment.amount.toLocaleString()} for your ${customer.subscriptionPlan} subscription at ${gymSettings.gymName}.\n\nReceipt No: ${receiptNo}\nDate: ${payment.paymentDate}\nMode: ${payment.mode}\n\nThank you!`;
+    const addressString = gymSettings.address ? `\n${gymSettings.address}` : "";
+    const phoneString = gymSettings.phone ? `\nContact: ${gymSettings.phone}` : "";
+    const message = `Hello ${customer.fullName},\n\nWe have received your payment of Rs. ${payment.amount.toLocaleString()} for your ${customer.subscriptionPlan} subscription at ${gymSettings.gymName}.\n\nReceipt No: ${receiptNo}\nDate: ${payment.paymentDate}\nMode: ${payment.mode}\n\nThank you!\n${gymSettings.gymName}${addressString}${phoneString}`;
 
     if (cleanPhone) {
       window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
