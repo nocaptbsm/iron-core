@@ -122,7 +122,7 @@ const Payments = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.customerId || !form.amount || !form.mode || !form.paymentDate) {
       toast.error("Please fill all fields");
@@ -135,18 +135,23 @@ const Payments = () => {
       return;
     }
 
-    addPayment({
-      customerId: form.customerId,
-      customerName: customer.fullName,
-      amount: Number(form.amount),
-      mode: form.mode as Payment["mode"],
-      paymentDate: form.paymentDate,
-      plan: customer.subscriptionPlan,
-    });
+    try {
+      await addPayment({
+        customerId: form.customerId,
+        customerName: customer.fullName,
+        amount: Number(form.amount),
+        mode: form.mode as Payment["mode"],
+        paymentDate: form.paymentDate,
+        plan: customer.subscriptionPlan,
+      });
 
-    toast.success("Payment registered successfully!");
-    setForm({ customerId: "", amount: "", mode: "", paymentDate: format(new Date(), "yyyy-MM-dd") });
-    setTab("history");
+      toast.success("Payment registered successfully!");
+      setForm({ customerId: "", amount: "", mode: "", paymentDate: format(new Date(), "yyyy-MM-dd") });
+      setTab("history");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to register payment");
+    }
   };
 
   const handleSendWhatsAppEBill = (payment: Payment) => {
