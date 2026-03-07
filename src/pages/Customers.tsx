@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Search, Phone, Printer, Trash2, ArrowUpCircle, MoreHorizontal, FileText, User, MapPin } from "lucide-react";
 import { differenceInCalendarMonths, differenceInDays } from "date-fns";
 import { motion } from "framer-motion";
-import DashboardLayout from "@/components/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useGym } from "@/context/GymContext";
-import DashboardLayout from "@/components/DashboardLayout";
 import { Building2, Search, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
@@ -36,10 +34,9 @@ const SuperAdminDashboard = () => {
         fetchGyms();
     }, []);
 
-    return (
-        <DashboardLayout>
-            <div className="space-y-6 max-w-4xl mx-auto w-full">
-                <div>
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto w-full">
+      <div>
                     <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground flex items-center gap-3">
                         <Building2 className="w-8 h-8 text-primary" />
                         Super Admin Gateway
@@ -90,11 +87,9 @@ const SuperAdminDashboard = () => {
                                 No registered gyms found in the system.
                             </div>
                         )}
-                    </div>
-                )}
-            </div>
-        </DashboardLayout>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default SuperAdminDashboard;

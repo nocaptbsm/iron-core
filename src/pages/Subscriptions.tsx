@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,58 +34,58 @@ const Subscriptions = () => {
   ];
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Subscriptions</h1>
-          <p className="text-muted-foreground text-sm mt-1">Track and manage member subscriptions</p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Subscriptions</h1>
+        <p className="text-muted-foreground text-sm mt-1">Track and manage member subscriptions</p>
+      </div>
 
-        <div className="flex gap-2 flex-wrap">
-          {filters.map((f) => (
-            <Button
-              key={f.key}
-              variant={filter === f.key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilter(f.key)}
-            >
-              {f.label}
-              <span className="ml-1.5 text-xs opacity-70">({f.count})</span>
-            </Button>
-          ))}
-        </div>
+      <div className="flex gap-2 flex-wrap">
+        {filters.map((f) => (
+          <Button
+            key={f.key}
+            variant={filter === f.key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter(f.key)}
+          >
+            {f.label}
+            <span className="ml-1.5 text-xs opacity-70">({f.count})</span>
+          </Button>
+        ))}
+      </div>
 
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search subscriptions by name or phone..." 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)} 
-            className="pl-10 bg-card border-border" 
-          />
-        </div>
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by name or phone..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 bg-card border-border"
+        />
+      </div>
 
+      <div className="rounded-xl border border-border bg-card p-5">
         {filtered.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card p-12 text-center text-muted-foreground">
-            <p className="text-sm">No subscriptions found</p>
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No customers found</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((customer, i) => (
               <motion.div
                 key={customer.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.05 }}
-                className="rounded-xl border border-border bg-card p-5 hover:border-primary/20 transition-colors"
+                className="p-4 rounded-xl border border-border/50 bg-secondary/30 hover:bg-secondary/50 transition-colors flex flex-col gap-4"
               >
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
                     {customer.photo ? (
                       <img 
                         src={customer.photo} 
                         alt={customer.fullName}
-                        className="h-10 w-10 rounded-full object-cover border border-primary/20 shrink-0" 
+                        className="h-10 w-10 rounded-full object-cover shrink-0 border border-primary/20"
                       />
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -140,7 +139,7 @@ const Subscriptions = () => {
         customer={selectedCustomer} 
         onClose={() => setSelectedCustomer(null)} 
       />
-    </DashboardLayout>
+    </div>
   );
 };
 

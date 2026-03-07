@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Bell, Send, MessageSquare, Copy, Check, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -44,194 +43,258 @@ const Reminders = () => {
       .replace("{status}", selectedCustomer.status)
       .replace("{plan}", selectedCustomer.subscriptionPlan)
       .replace("{endDate}", selectedCustomer.subscriptionEnd)
-    : "";
+    : defaultTemplate;
 
-  const filteredCustomers = customers.filter((c) =>
-    c.status !== "archived" && c.fullName.toLowerCase().includes(customerSearch.toLowerCase())
-  );
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(filledMessage);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(filledMessage);
     setCopied(true);
     toast.success("Message copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const openSelectDialog = () => {
-    setSelectedCustomerId(null);
-    setCustomerSearch("");
-    setSelectOpen(true);
+  const handleWhatsApp = (phone: string, message: string) => {
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (cleanPhone) {
+      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+      toast.success("Opening WhatsApp...");
+    } else {
+      toast.error("Invalid phone number");
+    }
   };
 
-  const getWhatsAppLink = (c: typeof customers[0]) => {
-    const message = defaultTemplate
-      .replace("{name}", c.fullName)
-      .replace("{status}", c.status)
-      .replace("{plan}", c.subscriptionPlan)
-      .replace("{endDate}", c.subscriptionEnd);
-    const phone = c.phone.replace(/\D/g, "");
-    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-  };
-
-  const sendQuickReminder = (c: typeof customers[0]) => {
-    window.open(getWhatsAppLink(c), "_blank");
-    toast.success(`WhatsApp reminder opened for ${c.fullName}`);
-  };
+  const filteredCustomers = customers.filter(c => 
+    c.status !== 'archived' && (
+      c.fullName.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      c.phone.includes(customerSearch)
+    )
+  );
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Reminders</h1>
-            <p className="text-muted-foreground text-sm mt-1">Send subscription reminders to members</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Reminders</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage and send subscription reminders</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Expiring Soon */}
+        <div className="rounded-xl border border-warning/20 bg-warning/5 overflow-hidden flex flex-col h-full">
+          <div className="p-4 border-b border-warning/20 bg-warning/10 flex items-center gap-3">
+            <div className="p-2 bg-warning/20 rounded-lg text-warning">
+              <Bell className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-warning-foreground">Expiring Soon</h2>
+              <p className="text-xs text-warning-foreground/80">{expiring.length} customers</p>
+            </div>
           </div>
-          <Button onClick={openSelectDialog} className="gap-2">
-            <Send className="h-4 w-4" />
-            Send Reminder
-          </Button>
+          
+          <div className="p-4 flex-1 overflow-auto max-h-[400px]">
+            {expiring.length === 0 ? (
+              <p className="text-sm text-center text-muted-foreground py-8">No customers expiring soon</p>
+            ) : (
+              <div className="space-y-3">
+                {expiring.map((customer) => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    key={customer.id} 
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-warning/20 bg-background/50 gap-3"
+                  >
+                    <div>
+                      <span 
+                        className="font-medium text-foreground cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => setDetailsTarget(customer)}
+                      >
+                        {customer.fullName}
+                      </span>
+                      <p className="text-xs text-muted-foreground">{customer.phone} · Ends: {customer.subscriptionEnd}</p>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-warning/30 text-warning-foreground hover:bg-warning/10 w-full sm:w-auto gap-2"
+                      onClick={() => handleWhatsApp(customer.phone, defaultTemplate
+                        .replace("{name}", customer.fullName)
+                        .replace("{status}", customer.status)
+                        .replace("{plan}", customer.subscriptionPlan)
+                        .replace("{endDate}", customer.subscriptionEnd)
+                      )}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Remind
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Expiring & Expired sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl border border-warning/20 bg-warning/5 p-5"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Bell className="h-4 w-4 text-warning" />
-              <h2 className="font-display font-semibold text-foreground">Expiring Soon ({expiring.length})</h2>
+        {/* Expired */}
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 overflow-hidden flex flex-col h-full">
+          <div className="p-4 border-b border-destructive/20 bg-destructive/10 flex items-center gap-3">
+            <div className="p-2 bg-destructive/20 rounded-lg text-destructive">
+              <Bell className="h-5 w-5" />
             </div>
-            {expiring.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No expiring subscriptions</p>
-            ) : (
-              <div className="space-y-3">
-                {expiring.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-                    <div>
-                      <p 
-                        className="text-sm font-medium text-foreground cursor-pointer hover:underline text-primary"
-                        onClick={() => setDetailsTarget(c)}
-                      >
-                        {c.fullName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{c.phone} · Expires {c.subscriptionEnd}</p>
-                    </div>
-                    <Button size="sm" variant="outline" className="gap-1.5 text-xs border-warning/30 text-warning hover:bg-warning/10" onClick={() => sendQuickReminder(c)}>
-                      <Send className="h-3 w-3" /> Send
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="rounded-xl border border-destructive/20 bg-destructive/5 p-5"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Bell className="h-4 w-4 text-destructive" />
-              <h2 className="font-display font-semibold text-foreground">Expired ({expired.length})</h2>
+            <div>
+              <h2 className="font-semibold text-destructive-foreground">Expired</h2>
+              <p className="text-xs text-destructive-foreground/80">{expired.length} customers</p>
             </div>
+          </div>
+          
+          <div className="p-4 flex-1 overflow-auto max-h-[400px]">
             {expired.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No expired subscriptions</p>
+              <p className="text-sm text-center text-muted-foreground py-8">No expired customers</p>
             ) : (
               <div className="space-y-3">
-                {expired.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
+                {expired.map((customer) => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    key={customer.id} 
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-destructive/20 bg-background/50 gap-3"
+                  >
                     <div>
-                      <p 
-                        className="text-sm font-medium text-foreground cursor-pointer hover:underline text-primary"
-                        onClick={() => setDetailsTarget(c)}
+                      <span 
+                        className="font-medium text-foreground cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => setDetailsTarget(customer)}
                       >
-                        {c.fullName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{c.phone} · Expired {c.subscriptionEnd}</p>
+                        {customer.fullName}
+                      </span>
+                      <p className="text-xs text-muted-foreground">{customer.phone} · Ended: {customer.subscriptionEnd}</p>
                     </div>
-                    <Button size="sm" variant="outline" className="gap-1.5 text-xs border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => sendQuickReminder(c)}>
-                      <Send className="h-3 w-3" /> Send
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-destructive/30 text-destructive-foreground hover:bg-destructive/10 w-full sm:w-auto gap-2"
+                      onClick={() => handleWhatsApp(customer.phone, defaultTemplate
+                        .replace("{name}", customer.fullName)
+                        .replace("{status}", customer.status)
+                        .replace("{plan}", customer.subscriptionPlan)
+                        .replace("{endDate}", customer.subscriptionEnd)
+                      )}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Remind
                     </Button>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}
-          </motion.div>
+          </div>
         </div>
       </div>
 
-      {/* Send Reminder Dialog */}
-      <Dialog open={selectOpen} onOpenChange={setSelectOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-primary" />
-              Send Reminder
-            </DialogTitle>
-          </DialogHeader>
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Custom Message</h2>
+            <p className="text-xs text-muted-foreground mt-1">Send a customized message to any customer</p>
+          </div>
+          <Button onClick={() => setSelectOpen(true)} className="gap-2 w-full sm:w-auto">
+            <Send className="h-4 w-4" />
+            Send Custom Message
+          </Button>
+        </div>
 
-          {!selectedCustomer ? (
-            <div className="space-y-3">
+        <div className="flex flex-col md:flex-row gap-6">
+          
+          <div className="flex-1 space-y-3">
+            <h3 className="text-sm font-medium text-foreground">Template Preview</h3>
+            <div className="rounded-lg bg-secondary/50 p-4 font-mono text-sm whitespace-pre-wrap text-muted-foreground border border-border">
+              {defaultTemplate}
+            </div>
+            <p className="text-xs text-muted-foreground">Variables: {"{name}"}, {"{status}"}, {"{plan}"}, {"{endDate}"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Selection Dialog */}
+      <Dialog open={selectOpen} onOpenChange={setSelectOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedCustomerId ? "Review Message" : "Select Customer"}</DialogTitle>
+          </DialogHeader>
+          
+          {!selectedCustomerId ? (
+            <div className="space-y-4 py-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search customer..."
+                  placeholder="Search customers..."
                   value={customerSearch}
                   onChange={(e) => setCustomerSearch(e.target.value)}
                   className="pl-9"
+                  autoFocus
                 />
               </div>
-              <div className="max-h-60 overflow-y-auto space-y-1">
+              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
                 {filteredCustomers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No customers found</p>
+                  <p className="text-center text-sm text-muted-foreground py-4">No customers found</p>
                 ) : (
-                  filteredCustomers.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedCustomerId(c.id)}
-                      className="w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-left hover:bg-accent transition-colors"
+                  filteredCustomers.map((customer) => (
+                    <div 
+                      key={customer.id}
+                      onClick={() => setSelectedCustomerId(customer.id)}
+                      className="p-3 rounded-lg border border-border hover:bg-secondary/50 cursor-pointer transition-colors flex justify-between items-center"
                     >
                       <div>
-                        <p className="text-sm font-medium text-foreground">{c.fullName}</p>
-                        <p className="text-xs text-muted-foreground">{c.phone}</p>
+                        <p className="font-medium text-foreground">{customer.fullName}</p>
+                        <p className="text-xs text-muted-foreground">{customer.phone}</p>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === "active" ? "bg-primary/10 text-primary" :
-                        c.status === "expiring" ? "bg-warning/10 text-warning" :
-                        c.status === "archived" ? "bg-secondary/40 text-muted-foreground" :
-                          "bg-destructive/10 text-destructive"
-                        }`}>
-                        {c.status}
-                      </span>
-                    </button>
+                      <div className={`px-2 py-1 rounded text-[10px] font-medium uppercase
+                        ${customer.status === 'active' ? 'bg-primary/10 text-primary' : 
+                          customer.status === 'expiring' ? 'bg-warning/10 text-warning' : 
+                          'bg-destructive/10 text-destructive'}`}
+                      >
+                        {customer.status}
+                      </div>
+                    </div>
                   ))
                 )}
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="rounded-lg bg-secondary/50 p-4">
-                <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
-                  {filledMessage}
-                </pre>
+            <div className="space-y-4 py-4">
+              <div className="p-3 rounded-lg bg-secondary/30 border border-border flex justify-between items-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">Sending to:</p>
+                  <p className="font-medium text-foreground">{selectedCustomer?.fullName}</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedCustomerId(null)} className="h-8 text-xs">
+                  Change
+                </Button>
               </div>
-              <div className="flex flex-col gap-2">
-                <Button
+
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium uppercase px-1">Message Preview</p>
+                <div className="p-4 rounded-xl bg-card border border-border shadow-sm text-sm whitespace-pre-wrap">
+                  {filledMessage}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <Button 
+                  className="w-full gap-2" 
                   onClick={() => {
-                    const phone = selectedCustomer.phone.replace(/\D/g, "");
-                    const text = encodeURIComponent(filledMessage);
-                    window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+                    if (selectedCustomer) {
+                      handleWhatsApp(selectedCustomer.phone, filledMessage);
+                      setSelectOpen(false);
+                      setSelectedCustomerId(null);
+                    }
                   }}
-                  className="w-full gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white"
                 >
                   <MessageSquare className="h-4 w-4" />
-                  Send via WhatsApp
+                  Open in WhatsApp
                 </Button>
-                <div className="flex gap-2">
-                  <Button onClick={handleCopy} className="flex-1 gap-2" variant="outline">
-                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 gap-2"
+                    onClick={handleCopy}
+                  >
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                     {copied ? "Copied!" : "Copy Message"}
                   </Button>
                   <Button variant="outline" onClick={() => setSelectedCustomerId(null)}>
@@ -248,7 +311,7 @@ const Reminders = () => {
         customer={detailsTarget}
         onClose={() => setDetailsTarget(null)}
       />
-    </DashboardLayout>
+    </div>
   );
 };
 

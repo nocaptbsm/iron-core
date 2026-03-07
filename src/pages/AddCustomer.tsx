@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import DashboardLayout from "@/components/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,7 +10,6 @@ import { toast } from "sonner";
 import { format, addMonths, addDays } from "date-fns";
 import { useGym } from "@/context/GymContext";
 import { Camera, X, SwitchCamera, Upload } from "lucide-react";
-import { Customer } from "@/lib/mockData";
 
 const planDurations: Record<string, number> = {
   "1 month": 1,
@@ -52,7 +50,6 @@ const AddCustomer = () => {
   };
 
   const startCameraWithMode = useCallback(async (mode: "user" | "environment") => {
-    // Stop existing stream first
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     try {
@@ -61,206 +58,201 @@ const AddCustomer = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-    } catch {
-      toast.error("Unable to access camera");
-      setCameraOpen(false);
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      toast.error("Could not access camera. Please check permissions.");
     }
   }, []);
 
-  const startCamera = useCallback(async () => {
+  const startCamera = () => {
     setCameraOpen(true);
-    await startCameraWithMode(facingMode);
-  }, [facingMode, startCameraWithMode]);
+    setTimeout(() => {
+      startCameraWithMode(facingMode);
+    }, 100);
+  };
 
-  const flipCamera = useCallback(async () => {
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setCameraOpen(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        if (facingMode === "user") {
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(videoRef.current, 0, 0);
+        setPhoto(canvas.toDataURL("image/jpeg", 0.8));
+        stopCamera();
+      }
+    }
+  };
+
+  const flipCamera = () => {
     const newMode = facingMode === "user" ? "environment" : "user";
     setFacingMode(newMode);
-    await startCameraWithMode(newMode);
-  }, [facingMode, startCameraWithMode]);
+    startCameraWithMode(newMode);
+  };
 
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    setCameraOpen(false);
-  }, []);
-
-  const capturePhoto = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d")?.drawImage(video, 0, 0);
-    setPhoto(canvas.toDataURL("image/jpeg", 0.7));
-    stopCamera();
-  }, [stopCamera]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName || !form.phone || !form.plan || !form.gender || (form.plan === "others" && !form.customDays)) {
+    
+    if (!form.fullName || !form.phone || !form.joiningDate || !form.plan || !form.gender) {
       toast.error("Please fill all required fields");
       return;
     }
 
-    let endDate;
+    if (form.phone.replace(/\D/g, "").length !== 12) { // 91 + 10 digits = 12
+      toast.error("Please enter a valid 10-digit phone number");
+      return;
+    }
+
+    let expiryDate: string;
     if (form.plan === "others") {
-      endDate = format(addDays(new Date(form.joiningDate), parseInt(form.customDays, 10) || 1), "yyyy-MM-dd");
-    } else {
-      const months = planDurations[form.plan] || 1;
-      endDate = format(addMonths(new Date(form.joiningDate), months), "yyyy-MM-dd");
-    }
-
-    try {
-      await addCustomer({
-        fullName: form.fullName,
-        phone: form.phone,
-        address: form.address,
-        joiningDate: form.joiningDate,
-        subscriptionPlan: form.plan as Customer["subscriptionPlan"],
-        subscriptionStart: form.joiningDate,
-        subscriptionEnd: endDate,
-        photo: photo || undefined,
-        gender: form.gender,
-      });
-      toast.success(`${form.fullName} registered successfully!`);
-
-      let gymName = "IronCore Gym";
-      try {
-        const saved = localStorage.getItem("gym_settings");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.gymName) {
-            gymName = parsed.gymName;
-          }
-        }
-      } catch (e) {
-        console.error("Failed to parse settings", e);
+      if (!form.customDays || parseInt(form.customDays) <= 0) {
+        toast.error("Please enter a valid number of days");
+        return;
       }
-
-      const message = `Welcome to *${gymName}*, ${form.fullName}! 💪\n\nYour registration is successful.\n*Plan:* ${form.plan}\n*Start Date:* ${format(new Date(form.joiningDate), "dd MMM yyyy")}\n*End Date:* ${format(new Date(endDate), "dd MMM yyyy")}\n\nLet's crush those fitness goals! 🔥`;
-      const waUrl = `https://wa.me/${form.phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`;
-      window.open(waUrl, "_blank");
-
-      navigate("/customers");
-    } catch (error: unknown) {
-      console.error(error);
-      const e = error as Error;
-      toast.error(e.message || "Failed to register customer");
+      expiryDate = format(addDays(new Date(form.joiningDate), parseInt(form.customDays)), "yyyy-MM-dd");
+    } else {
+      const months = planDurations[form.plan];
+      expiryDate = format(addMonths(new Date(form.joiningDate), months), "yyyy-MM-dd");
     }
+
+    addCustomer({
+      fullName: form.fullName,
+      phone: form.phone,
+      address: form.address,
+      joiningDate: form.joiningDate,
+      subscriptionPlan: form.plan === "others" ? `${form.customDays} days` : form.plan,
+      subscriptionStart: form.joiningDate,
+      subscriptionEnd: expiryDate,
+      status: "active",
+      photo: photo || undefined,
+      gender: form.gender,
+    });
+    
+    toast.success("Customer added successfully!");
+    navigate("/customers");
   };
 
   return (
-    <DashboardLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Add Customer</h1>
-          <p className="text-muted-foreground text-sm mt-1">Register a new gym member</p>
-        </div>
-
-        <motion.form
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          onSubmit={handleSubmit}
-          className="rounded-xl border border-border bg-card p-6 space-y-5"
-        >
-          {/* Photo Section */}
-          <div className="flex flex-col items-center gap-3">
-            {photo ? (
-              <div className="relative">
-                <img src={photo} alt="Customer" className="h-28 w-28 rounded-full object-cover border-2 border-primary/20" />
-                <button type="button" onClick={() => setPhoto(null)} className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <div className="h-28 w-28 rounded-full bg-secondary/50 border border-dashed border-border flex items-center justify-center">
-                <Camera className="h-8 w-8 text-muted-foreground" />
-              </div>
-            )}
-            <Button type="button" variant="outline" size="sm" className="gap-2" onClick={startCamera}>
-              <Camera className="h-4 w-4" />
-              {photo ? "Retake Photo" : "Capture Photo"}
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input id="fullName" placeholder="Enter full name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="bg-secondary/50 border-border" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <div className="flex">
-                <div className="flex items-center justify-center bg-secondary/80 border border-border border-r-0 rounded-l-md px-3 text-sm text-muted-foreground">
-                  +91
-                </div>
-                <Input
-                  id="phone"
-                  placeholder="XXXXX XXXXX"
-                  value={form.phone.replace(/^\+91\s*/, "")}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    setForm({ ...form, phone: val ? `+91 ${val}` : "" });
-                  }}
-                  className="bg-secondary/50 border-border rounded-l-none"
-                  maxLength={10}
-                />
-              </div>
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="address">Address (Optional)</Label>
-              <Input id="address" placeholder="Enter full address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="bg-secondary/50 border-border" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="joiningDate">Joining Date</Label>
-              <Input id="joiningDate" type="date" value={form.joiningDate} onChange={(e) => setForm({ ...form, joiningDate: e.target.value })} className="bg-secondary/50 border-border" />
-            </div>
-            <div className="space-y-2">
-              <Label>Gender</Label>
-              <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v })}>
-                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Select gender" /></SelectTrigger>
-                <SelectContent>
-                  {["Male", "Female", "Other"].map((g) => (
-                    <SelectItem key={g} value={g}>{g}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Subscription Plan</Label>
-              <Select value={form.plan} onValueChange={(v) => setForm({ ...form, plan: v })}>
-                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Select plan" /></SelectTrigger>
-                <SelectContent>
-                  {["1 month", "3 months", "6 months", "12 months", "others"].map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {form.plan === "others" && (
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="customDays">Number of Days</Label>
-                <Input
-                  id="customDays"
-                  type="number"
-                  min="1"
-                  placeholder="e.g., 45"
-                  value={form.customDays}
-                  onChange={(e) => setForm({ ...form, customDays: e.target.value })}
-                  className="bg-secondary/50 border-border"
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" className="flex-1">Register Customer</Button>
-            <Button type="button" variant="outline" onClick={() => navigate("/customers")}>Cancel</Button>
-          </div>
-        </motion.form>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Add Customer</h1>
+        <p className="text-muted-foreground text-sm mt-1">Register a new gym member</p>
       </div>
 
-      {/* Camera Dialog */}
+      <motion.form
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        onSubmit={handleSubmit}
+        className="rounded-xl border border-border bg-card p-6 space-y-5"
+      >
+        <div className="flex flex-col items-center gap-3">
+          {photo ? (
+            <div className="relative">
+              <img src={photo} alt="Customer" className="h-28 w-28 rounded-full object-cover border-2 border-primary/20" />
+              <button type="button" onClick={() => setPhoto(null)} className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="h-28 w-28 rounded-full bg-secondary/50 border border-dashed border-border flex items-center justify-center">
+              <Camera className="h-8 w-8 text-muted-foreground" />
+            </div>
+          )}
+          <Button type="button" variant="outline" size="sm" className="gap-2" onClick={startCamera}>
+            <Camera className="h-4 w-4" />
+            {photo ? "Retake Photo" : "Capture Photo"}
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Full Name</Label>
+            <Input id="fullName" placeholder="Enter full name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="bg-secondary/50 border-border" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number</Label>
+            <div className="flex">
+              <div className="flex items-center justify-center bg-secondary/80 border border-border border-r-0 rounded-l-md px-3 text-sm text-muted-foreground">
+                +91
+              </div>
+              <Input
+                id="phone"
+                placeholder="XXXXX XXXXX"
+                value={form.phone.replace(/^\+91\s*/, "")}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  setForm({ ...form, phone: val ? `+91 ${val}` : "" });
+                }}
+                className="bg-secondary/50 border-border rounded-l-none"
+                maxLength={10}
+              />
+            </div>
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="address">Address (Optional)</Label>
+            <Input id="address" placeholder="Enter full address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="bg-secondary/50 border-border" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="joiningDate">Joining Date</Label>
+            <Input id="joiningDate" type="date" value={form.joiningDate} onChange={(e) => setForm({ ...form, joiningDate: e.target.value })} className="bg-secondary/50 border-border" />
+          </div>
+          <div className="space-y-2">
+            <Label>Gender</Label>
+            <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v })}>
+              <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Select gender" /></SelectTrigger>
+              <SelectContent>
+                {["Male", "Female", "Other"].map((g) => (
+                  <SelectItem key={g} value={g}>{g}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Subscription Plan</Label>
+            <Select value={form.plan} onValueChange={(v) => setForm({ ...form, plan: v })}>
+              <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Select plan" /></SelectTrigger>
+              <SelectContent>
+                {["1 month", "3 months", "6 months", "12 months", "others"].map((p) => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {form.plan === "others" && (
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="customDays">Number of Days</Label>
+              <Input
+                id="customDays"
+                type="number"
+                min="1"
+                placeholder="e.g., 45"
+                value={form.customDays}
+                onChange={(e) => setForm({ ...form, customDays: e.target.value })}
+                className="bg-secondary/50 border-border"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <Button type="submit" className="flex-1">Register Customer</Button>
+          <Button type="button" variant="outline" onClick={() => navigate("/customers")}>Cancel</Button>
+        </div>
+      </motion.form>
+
       <Dialog open={cameraOpen} onOpenChange={(open) => { if (!open) stopCamera(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -292,7 +284,7 @@ const AddCustomer = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </div>
   );
 };
 

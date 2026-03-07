@@ -12,6 +12,7 @@ import Subscriptions from "./pages/Subscriptions";
 import Reminders from "./pages/Reminders";
 import NotFound from "./pages/NotFound";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import DashboardLayout from "./components/DashboardLayout";
 import Settings from "./pages/Settings";
 
 const ProtectedRoute = ({ children, requireGym = false }: { children: JSX.Element, requireGym?: boolean }) => {
@@ -39,17 +40,17 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={
-        <ProtectedRoute>
-          {role === 'super_admin' && !selectedGymId ? <SuperAdminDashboard /> : <Dashboard />}
-        </ProtectedRoute>
-      } />
-      <Route path="/customers" element={<ProtectedRoute requireGym><Customers /></ProtectedRoute>} />
-      <Route path="/add-customer" element={<ProtectedRoute requireGym><AddCustomer /></ProtectedRoute>} />
-      <Route path="/payments" element={<ProtectedRoute requireGym><Payments /></ProtectedRoute>} />
-      <Route path="/subscriptions" element={<ProtectedRoute requireGym><Subscriptions /></ProtectedRoute>} />
-      <Route path="/reminders" element={<ProtectedRoute requireGym><Reminders /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute requireGym><Settings /></ProtectedRoute>} />
+      <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+        <Route index element={
+          role === 'super_admin' && !selectedGymId ? <SuperAdminDashboard /> : <Dashboard />
+        } />
+        <Route path="customers" element={<ProtectedRoute requireGym><Customers /></ProtectedRoute>} />
+        <Route path="add-customer" element={<ProtectedRoute requireGym><AddCustomer /></ProtectedRoute>} />
+        <Route path="payments" element={<ProtectedRoute requireGym><Payments /></ProtectedRoute>} />
+        <Route path="subscriptions" element={<ProtectedRoute requireGym><Subscriptions /></ProtectedRoute>} />
+        <Route path="reminders" element={<ProtectedRoute requireGym><Reminders /></ProtectedRoute>} />
+        <Route path="settings" element={<ProtectedRoute requireGym><Settings /></ProtectedRoute>} />
+      </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

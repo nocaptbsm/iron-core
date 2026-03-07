@@ -1,12 +1,9 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useGym } from "@/context/GymContext";
+import { Outlet } from "react-router-dom";
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-}
-
-const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+const DashboardLayout = () => {
   const { session } = useGym();
 
   return (
@@ -28,7 +25,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </div>
           </header>
           <main className="flex-1 p-4 lg:p-6 overflow-auto print:overflow-visible print:h-auto print:p-0 print:block">
-            {children}
+            <Outlet />
           </main>
         </div>
       </div>
