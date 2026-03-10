@@ -32,18 +32,52 @@ const AddCustomer = () => {
     gender: "",
   });
   const [photo, setPhoto] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const compressImage = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const MAX_WIDTH = 600;
+
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.4)); // High compression
+        } else {
+          resolve(dataUrl);
+        }
+      };
+      img.src = dataUrl;
+    });
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhoto(reader.result as string);
+      reader.onloadend = async () => {
+        if (typeof reader.result === 'string') {
+          const compressed = await compressImage(reader.result);
+          setPhoto(compressed);
+        }
         stopCamera();
       };
       reader.readAsDataURL(file);
@@ -83,16 +117,28 @@ const AddCustomer = () => {
   const capturePhoto = () => {
     if (videoRef.current) {
       const canvas = document.createElement("canvas");
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      const video = videoRef.current;
+
+      const MAX_WIDTH = 600;
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+
+      if (width > MAX_WIDTH) {
+        height = Math.round((height * MAX_WIDTH) / width);
+        width = MAX_WIDTH;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
       const ctx = canvas.getContext("2d");
       if (ctx) {
         if (facingMode === "user") {
           ctx.translate(canvas.width, 0);
           ctx.scale(-1, 1);
         }
-        ctx.drawImage(videoRef.current, 0, 0);
-        setPhoto(canvas.toDataURL("image/jpeg", 0.8));
+        ctx.drawImage(video, 0, 0, width, height);
+        setPhoto(canvas.toDataURL("image/jpeg", 0.4)); // High compression
         stopCamera();
       }
     }
@@ -104,7 +150,7 @@ const AddCustomer = () => {
     startCameraWithMode(newMode);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!form.fullName || !form.phone || !form.joiningDate || !form.plan || !form.gender) {
@@ -129,42 +175,50 @@ const AddCustomer = () => {
       expiryDate = format(addMonths(new Date(form.joiningDate), months), "yyyy-MM-dd");
     }
 
-    addCustomer({
-      fullName: form.fullName,
-      phone: form.phone,
-      address: form.address,
-      joiningDate: form.joiningDate,
-      subscriptionPlan: (form.plan === "others" ? `${form.customDays} days` : form.plan) as Customer["subscriptionPlan"],
-      subscriptionStart: form.joiningDate,
-      subscriptionEnd: expiryDate,
-      photo: photo || undefined,
-      gender: form.gender,
-    });
-
-    // Fetch gym name
-    let gymName = "our Gym";
+    setIsSubmitting(true);
     try {
-      const saved = localStorage.getItem("gym_settings");
-      if (saved) {
-        const settings = JSON.parse(saved);
-        if (settings.gymName) gymName = settings.gymName;
+      await addCustomer({
+        fullName: form.fullName,
+        phone: form.phone,
+        address: form.address,
+        joiningDate: form.joiningDate,
+        subscriptionPlan: (form.plan === "others" ? `${form.customDays} days` : form.plan) as Customer["subscriptionPlan"],
+        subscriptionStart: form.joiningDate,
+        subscriptionEnd: expiryDate,
+        photo: photo || undefined,
+        gender: form.gender,
+      });
+
+      // Fetch gym name
+      let gymName = "our Gym";
+      try {
+        const saved = localStorage.getItem("gym_settings");
+        if (saved) {
+          const settings = JSON.parse(saved);
+          if (settings.gymName) gymName = settings.gymName;
+        }
+      } catch (e) {
+        console.error("Failed to parse gym settings for WhatsApp message", e);
       }
-    } catch (e) {
-      console.error("Failed to parse gym settings for WhatsApp message", e);
+
+      const cleanPhone = form.phone.replace(/\D/g, "");
+      const planName = form.plan === "others" ? `${form.customDays} days` : form.plan;
+      const message = `Hello ${form.fullName},\n\nWelcome to ${gymName}! Your subscription for ${planName} has been registered successfully.\nStart Date: ${form.joiningDate}\nEnd Date: ${expiryDate}\n\nThank you!`;
+
+      toast.success("Customer added successfully!");
+
+      // Open WhatsApp in a new tab
+      if (cleanPhone) {
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+      }
+
+      navigate("/customers");
+    } catch (error: unknown) {
+      console.error(error);
+      toast.error((error as Error).message || "Failed to add customer.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const cleanPhone = form.phone.replace(/\D/g, "");
-    const planName = form.plan === "others" ? `${form.customDays} days` : form.plan;
-    const message = `Hello ${form.fullName},\n\nWelcome to ${gymName}! Your subscription for ${planName} has been registered successfully.\nStart Date: ${form.joiningDate}\nEnd Date: ${expiryDate}\n\nThank you!`;
-
-    toast.success("Customer added successfully!");
-
-    // Open WhatsApp in a new tab
-    if (cleanPhone) {
-      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
-    }
-
-    navigate("/customers");
   };
 
   return (
@@ -270,7 +324,12 @@ const AddCustomer = () => {
         </div>
 
         <div className="flex gap-3 pt-2">
-          <Button type="submit" className="flex-1">Register Customer</Button>
+          <Button type="submit" className="flex-1" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <div className="h-4 w-4 rounded-full border-2 border-primary-foreground border-r-transparent animate-spin mr-2" />
+            ) : null}
+            {isSubmitting ? "Registering..." : "Register Customer"}
+          </Button>
           <Button type="button" variant="outline" onClick={() => navigate("/customers")}>Cancel</Button>
         </div>
       </motion.form>
