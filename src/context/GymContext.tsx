@@ -138,10 +138,11 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     try {
       const targetUserId = selectedGymId || userId;
 
+      let timeoutId: ReturnType<typeof setTimeout>;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const timeoutPromise = new Promise<any>((_, reject) =>
-        setTimeout(() => reject(new Error("Database fetch timed out")), 8000)
-      );
+      const timeoutPromise = new Promise<any>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("Database fetch timed out (>15s). Please check your connection.")), 15000);
+      });
 
       const fetchCustomers = supabase.from("customers").select("*").eq("user_id", targetUserId).order("joiningDate", { ascending: false });
       const fetchPayments = supabase.from("payments").select("*").eq("user_id", targetUserId).order("paymentDate", { ascending: false });
@@ -151,14 +152,17 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
         Promise.race([fetchPayments, timeoutPromise])
       ]);
 
+      clearTimeout(timeoutId!);
+
       if (cRes.error) throw cRes.error;
       if (pRes.error) throw pRes.error;
 
       setCustomers((cRes.data || []).map(normalizeCustomer));
       setPayments((pRes.data || []).map(normalizePayment));
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching from Supabase:", error);
-      toast.error("Network error: Failed to sync data with the server.");
+      const msg = error instanceof Error ? error.message : String(error || "Unknown network error");
+      toast.error(`Sync error: ${msg}`);
     } finally {
       setLoading(false);
     }
