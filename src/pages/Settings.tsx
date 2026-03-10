@@ -5,9 +5,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Upload, X, Building2 } from "lucide-react";
+import { useGym } from "@/context/GymContext";
 
 export default function Settings() {
   const [loading, setLoading] = useState(false);
+
   const [form, setForm] = useState({
     gymName: "",
     address: "",
@@ -113,7 +115,7 @@ export default function Settings() {
         </motion.div>
       </div>
 
-      <div className="flex justify-end pt-2">
+      <div className="flex justify-end pt-4 border-t">
         <Button
           onClick={handleSave}
           disabled={loading}

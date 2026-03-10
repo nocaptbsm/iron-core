@@ -356,6 +356,43 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   const addCustomer = async (customer: Omit<Customer, "id" | "status">) => {
     if (!session?.user) throw new Error("Must be logged in");
 
+    let finalPhotoUrl = customer.photo || null;
+
+    if (finalPhotoUrl && finalPhotoUrl.startsWith("data:image")) {
+      try {
+        const res = await fetch(finalPhotoUrl);
+        const blob = await res.blob();
+
+        let ext = "jpg";
+        if (blob.type === "image/png") ext = "png";
+        else if (blob.type === "image/webp") ext = "webp";
+
+        const fileName = `${session.user.id}_${Date.now()}.${ext}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(fileName, blob, {
+            contentType: blob.type,
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error("Error uploading avatar:", uploadError);
+          throw new Error("Failed to upload photo: " + uploadError.message);
+        }
+
+        if (uploadData) {
+          const { data: { publicUrl } } = supabase.storage
+            .from("avatars")
+            .getPublicUrl(fileName);
+          finalPhotoUrl = publicUrl;
+        }
+      } catch (err) {
+        console.error("Image processing error:", err);
+        throw new Error("Failed to process profile photo.");
+      }
+    }
+
     const payload = {
       fullName: customer.fullName,
       phone: customer.phone,
@@ -365,7 +402,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       subscriptionEnd: customer.subscriptionEnd,
       is_archived: false,
       status: computeStatus(customer.subscriptionEnd, false),
-      photo: customer.photo || null,
+      photo: finalPhotoUrl,
       address: customer.address || null,
       gender: customer.gender || null,
       user_id: selectedGymId || session.user.id
@@ -473,7 +510,22 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <GymContext.Provider value={{ customers, payments, session, addCustomer, addPayment, deleteCustomer, archiveCustomer, upgradeCustomer, getStats, signOut, loading, role, selectedGymId, setSelectedGymId }}>
+    <GymContext.Provider value={{
+      customers,
+      payments,
+      session,
+      addCustomer,
+      addPayment,
+      deleteCustomer,
+      archiveCustomer,
+      upgradeCustomer,
+      getStats,
+      signOut,
+      loading,
+      role,
+      selectedGymId,
+      setSelectedGymId
+    }}>
       {children}
     </GymContext.Provider>
   );
