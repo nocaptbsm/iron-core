@@ -26,35 +26,7 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
-            {/* Animated Background Elements */}
-            <motion.div
-                animate={{
-                    scale: [1, 1.2, 1],
-                    rotate: [0, 90, 0],
-                    borderRadius: ["20%", "50%", "20%"]
-                }}
-                transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                className="absolute top-[10%] -left-20 w-[40rem] h-[40rem] bg-primary/10 blur-[100px] mix-blend-screen pointer-events-none"
-            />
-            <motion.div
-                animate={{
-                    scale: [1, 1.5, 1],
-                    rotate: [0, -90, 0],
-                    x: [0, 100, 0]
-                }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                className="absolute bottom-[10%] -right-20 w-[30rem] h-[30rem] bg-blue-500/10 blur-[100px] mix-blend-screen pointer-events-none"
-            />
-            <motion.div
-                animate={{
-                    y: [0, -50, 0],
-                    opacity: [0.3, 0.6, 0.3]
-                }}
-                transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50rem] h-[20rem] bg-purple-500/10 blur-[120px] mix-blend-screen pointer-events-none"
-            />
-
+        <div className="min-h-screen flex items-center justify-center bg-transparent p-4 relative overflow-hidden">
             <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -95,10 +67,11 @@ const Login = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
-                    className="bg-card/40 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-8 shadow-2xl relative overflow-hidden group"
+                className="glass-panel-login rounded-[2rem] p-8 relative overflow-hidden group shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+                style={{ background: 'rgba(255, 255, 255, 0.03)' }}
                 >
                     {/* Inner elegant glow */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
                     <div className="text-center mb-8">
                         <h2 className="text-xl font-semibold text-white mb-2">Welcome Back</h2>

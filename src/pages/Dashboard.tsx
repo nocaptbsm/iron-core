@@ -46,7 +46,7 @@ const Dashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="rounded-xl border border-border bg-card p-5"
+          className="glass-panel rounded-xl border border-white/10 p-5"
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground">Recent Customers</h2>
@@ -63,12 +63,12 @@ const Dashboard = () => {
                     <p className="text-xs text-muted-foreground">{customer.phone} · Joined {customer.joiningDate}</p>
                   </div>
                   <Badge
-                    className={
-                      customer.status === 'active' ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20' :
-                      customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20 hover:bg-warning/20' :
-                      customer.status === 'archived' ? 'bg-secondary/40 text-muted-foreground border-border' :
-                      'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20'
-                    }
+                      className={
+                        customer.status === 'active' ? 'bg-primary/80 text-primary-foreground border-primary/20 hover:bg-primary/90' :
+                        customer.status === 'expiring' ? 'bg-warning/80 text-warning-foreground border-warning/20 hover:bg-warning/90' :
+                        customer.status === 'archived' ? 'bg-secondary/80 text-secondary-foreground border-border' :
+                        'bg-destructive/80 text-destructive-foreground border-destructive/20 hover:bg-destructive/90'
+                      }
                   >
                     {customer.status}
                   </Badge>
@@ -82,7 +82,7 @@ const Dashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="rounded-xl border border-border bg-card p-5"
+          className="glass-panel rounded-xl border border-white/10 p-5"
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground">Recent Payments</h2>

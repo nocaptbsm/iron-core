@@ -56,7 +56,7 @@ const Reminders = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Expiring Soon */}
-        <div className="rounded-xl border border-warning/20 bg-warning/5 overflow-hidden flex flex-col h-full">
+        <div className="glass-panel rounded-xl border border-warning/20 bg-warning/10 overflow-hidden flex flex-col h-full">
           <div className="p-4 border-b border-warning/20 bg-warning/10 flex items-center gap-3">
             <div className="p-2 bg-warning/20 rounded-lg text-warning">
               <Bell className="h-5 w-5" />
@@ -77,7 +77,7 @@ const Reminders = () => {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     key={customer.id} 
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-warning/20 bg-background/50 gap-3"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-warning/20 bg-background/40 backdrop-blur-md gap-3"
                   >
                     <div>
                       <span 
@@ -110,7 +110,7 @@ const Reminders = () => {
         </div>
 
         {/* Expired */}
-        <div className="rounded-xl border border-destructive/20 bg-destructive/5 overflow-hidden flex flex-col h-full">
+        <div className="glass-panel rounded-xl border border-destructive/20 bg-destructive/10 overflow-hidden flex flex-col h-full">
           <div className="p-4 border-b border-destructive/20 bg-destructive/10 flex items-center gap-3">
             <div className="p-2 bg-destructive/20 rounded-lg text-destructive">
               <Bell className="h-5 w-5" />
@@ -131,7 +131,7 @@ const Reminders = () => {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     key={customer.id} 
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-destructive/20 bg-background/50 gap-3"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-destructive/20 bg-background/40 backdrop-blur-md gap-3"
                   >
                     <div>
                       <span 

@@ -202,7 +202,7 @@ const Payments = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           onSubmit={handleSubmit}
-          className="max-w-2xl rounded-xl border border-border bg-card p-6 space-y-5"
+          className="max-w-2xl glass-panel rounded-xl border border-white/10 p-6 space-y-5"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-2 sm:col-span-2">
@@ -252,7 +252,7 @@ const Payments = () => {
               {isGeneratingPDF ? "Generating..." : "Print All Payments"}
             </Button>
           </div>
-          <div className="rounded-xl border border-border bg-card overflow-hidden print:overflow-visible print:border-none">
+          <div className="glass-panel rounded-xl border border-white/10 overflow-hidden print:overflow-visible print:border-none">
             <div className="overflow-x-auto print:overflow-visible">
               <table className="w-full">
                 <thead>

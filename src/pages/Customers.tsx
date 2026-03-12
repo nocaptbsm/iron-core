@@ -11,8 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { ArchiveRestore } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { Customer } from "@/lib/mockData";
 import { CustomerDetailsDialog } from "@/components/CustomerDetailsDialog";
@@ -28,6 +27,7 @@ const Customers = () => {
   const [detailsTarget, setDetailsTarget] = useState<Customer | null>(null);
   const [receiptTarget, setReceiptTarget] = useState<Customer | null>(null);
   const [gymName, setGymName] = useState("");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const filtered = customers.filter(
     (c) =>
@@ -35,81 +35,96 @@ const Customers = () => {
       c.phone.includes(search)
   );
 
-  const handlePrint = () => {
-    const doc = new jsPDF();
-    const date = new Date().toLocaleDateString();
+  const handlePrint = async () => {
+    setIsGeneratingPDF(true);
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    let gymSettings = { gymName: "GYM REPORT", address: "", phone: "", proprietor: "", gymLogo: "" };
     try {
-      const saved = localStorage.getItem("gym_settings");
-      if (saved) {
-        gymSettings = { ...gymSettings, ...JSON.parse(saved) };
-      }
-    } catch (e) {
-      console.error(e);
-    }
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
 
-    if (gymSettings.gymLogo) {
+      const doc = new jsPDF();
+      const date = new Date().toLocaleDateString();
+
+      let gymSettings = { gymName: "GYM REPORT", address: "", phone: "", proprietor: "", gymLogo: "" };
       try {
-        const formatMatch = gymSettings.gymLogo.match(/^data:image\/(\w+);base64,/);
-        const format = formatMatch ? formatMatch[1].toUpperCase() : "PNG";
-        const imgProps = doc.getImageProperties(gymSettings.gymLogo);
-        const width = 25;
-        const height = width * (imgProps.height / imgProps.width);
-        doc.addImage(gymSettings.gymLogo, format, 15, 10, width, height);
-      } catch (error) {
-        console.error("Could not add gym logo to PDF", error);
+        const saved = localStorage.getItem("gym_settings");
+        if (saved) {
+          gymSettings = { ...gymSettings, ...JSON.parse(saved) };
+        }
+      } catch (e) {
+        console.error(e);
       }
+
+      if (gymSettings.gymLogo) {
+        try {
+          const formatMatch = gymSettings.gymLogo.match(/^data:image\/(\w+);base64,/);
+          const format = formatMatch ? formatMatch[1].toUpperCase() : "PNG";
+          const imgProps = doc.getImageProperties(gymSettings.gymLogo);
+          const width = 25;
+          const height = width * (imgProps.height / imgProps.width);
+          doc.addImage(gymSettings.gymLogo, format, 15, 10, width, height);
+        } catch (error) {
+          console.error("Could not add gym logo to PDF", error);
+        }
+      }
+
+      // Header
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text(gymSettings.gymName || "CUSTOMERS REPORT", 190, 20, { align: "right" });
+
+      let currentY = 28;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+
+      if (gymSettings.address) {
+        doc.text(gymSettings.address, 190, currentY, { align: "right" });
+        currentY += 5;
+      }
+      if (gymSettings.phone) {
+        doc.text(`Phone: ${gymSettings.phone}`, 190, currentY, { align: "right" });
+        currentY += 5;
+      }
+
+      currentY += 10;
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("All Customers List", 15, currentY);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated on: ${date}`, 15, currentY + 6);
+
+      currentY += 12;
+
+      const tableData = filtered.map(c => [
+        c.fullName,
+        c.phone,
+        c.subscriptionPlan,
+        c.subscriptionEnd,
+        c.status.toUpperCase()
+      ]);
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [["Customer Name", "Phone", "Plan", "Expires", "Status"]],
+        body: tableData,
+        theme: "striped",
+        headStyles: { fillColor: [41, 128, 185] },
+      });
+
+      doc.autoPrint();
+      const blobURL = doc.output('bloburl');
+      window.open(blobURL, '_blank');
+      doc.save(`Customers_Report_${date.replace(/\//g, '-')}.pdf`);
+      toast.success("Customers report downloaded");
+    } catch (error) {
+      console.error("Error generating report", error);
+      toast.error("Failed to generate report");
+    } finally {
+      setIsGeneratingPDF(false);
     }
-
-    // Header
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "bold");
-    doc.text(gymSettings.gymName || "CUSTOMERS REPORT", 105, 20, { align: "center" });
-
-    let currentY = 28;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    
-    if (gymSettings.address) {
-      doc.text(gymSettings.address, 105, currentY, { align: "center" });
-      currentY += 5;
-    }
-    if (gymSettings.phone) {
-      doc.text(`Phone: ${gymSettings.phone}`, 105, currentY, { align: "center" });
-      currentY += 5;
-    }
-    
-    currentY += 10;
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("All Customers List", 15, currentY);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Generated on: ${date}`, 15, currentY + 6);
-    
-    currentY += 12;
-
-    const tableData = filtered.map(c => [
-      c.fullName,
-      c.phone,
-      c.subscriptionPlan,
-      c.subscriptionEnd,
-      c.status.toUpperCase()
-    ]);
-
-    autoTable(doc, {
-      startY: currentY,
-      head: [["Customer Name", "Phone", "Plan", "Expires", "Status"]],
-      body: tableData,
-      theme: "striped",
-      headStyles: { fillColor: [41, 128, 185] },
-    });
-
-    doc.autoPrint();
-    const blobURL = doc.output('bloburl');
-    window.open(blobURL, '_blank');
   };
 
   const handleSendToWhatsApp = async () => {
@@ -154,164 +169,170 @@ Thank you for your business!
 
   return (
     <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Customers</h1>
-            <p className="text-muted-foreground text-sm mt-1">Manage your gym members</p>
-          </div>
-          <Button variant="outline" size="sm" className="gap-2 print:hidden" onClick={handlePrint}>
-            <Printer className="h-4 w-4" />
-            Print PDF
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground">Customers</h1>
+          <p className="text-muted-foreground text-sm mt-1">Manage your gym members</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 mt-4 lg:mt-0">
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={handlePrint} disabled={isGeneratingPDF}>
+            {isGeneratingPDF ? (
+              <div className="h-4 w-4 rounded-full border-2 border-primary border-r-transparent animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
+            {isGeneratingPDF ? "Generating..." : "Print Report"}
           </Button>
         </div>
+      </div>
 
-        <div className="relative max-w-md print:hidden">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search by name or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 bg-card border-border" />
-        </div>
+      <div className="relative max-w-md print:hidden">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search by name or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 bg-card border-border" />
+      </div>
 
-        <div className="rounded-xl border border-border bg-card overflow-hidden print:overflow-visible print:border-none">
-          <div className="overflow-x-auto print:overflow-visible">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-secondary/30">
-                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer</th>
-                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Contact & Info</th>
-                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Plan</th>
-                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Expires</th>
-                  <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="text-right p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider print:hidden">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((customer, i) => (
-                  <motion.tr
-                    key={customer.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        {customer.photo ? (
-                          <img src={customer.photo} alt={customer.fullName} className="h-9 w-9 rounded-full object-cover shrink-0" />
-                        ) : (
-                          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-semibold text-primary">
-                              {customer.fullName.split(' ').map(n => n[0]).join('')}
-                            </span>
-                          </div>
-                        )}
-                        <div>
-                          <p
-                            className="text-sm font-medium text-foreground cursor-pointer hover:underline"
-                            onClick={() => setDetailsTarget(customer)}
-                          >
-                            {customer.fullName}
+      <div className="glass-panel rounded-xl border border-white/10 overflow-hidden print:overflow-visible print:border-none">
+        <div className="overflow-x-auto print:overflow-visible">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-secondary/30">
+                <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer</th>
+                <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Contact & Info</th>
+                <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Plan</th>
+                <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Expires</th>
+                <th className="text-left p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="text-right p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider print:hidden">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((customer, i) => (
+                <motion.tr
+                  key={customer.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
+                >
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      {customer.photo ? (
+                        <img src={customer.photo} alt={customer.fullName} className="h-9 w-9 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-semibold text-primary">
+                            {customer.fullName.split(' ').map(n => n[0]).join('')}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <p
+                          className="text-sm font-medium text-foreground cursor-pointer hover:underline"
+                          onClick={() => setDetailsTarget(customer)}
+                        >
+                          {customer.fullName}
+                        </p>
+                        <div className="sm:hidden mt-1 space-y-1">
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <Phone className="h-3 w-3 shrink-0" />{customer.phone}
                           </p>
-                          <div className="sm:hidden mt-1 space-y-1">
+                          {customer.gender && (
                             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                              <Phone className="h-3 w-3 shrink-0" />{customer.phone}
+                              <User className="h-3 w-3 shrink-0" />{customer.gender}
                             </p>
-                            {customer.gender && (
-                              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                <User className="h-3 w-3 shrink-0" />{customer.gender}
-                              </p>
-                            )}
-                            {customer.address && (
-                              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                <MapPin className="h-3 w-3 shrink-0" />
-                                <span className="truncate max-w-[150px]" title={customer.address}>{customer.address}</span>
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4 hidden sm:table-cell">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <Phone className="h-3.5 w-3.5 shrink-0" />
-                          {customer.phone}
-                        </div>
-                        {customer.gender && (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <User className="h-3.5 w-3.5 shrink-0" />
-                            {customer.gender}
-                          </div>
-                        )}
-                        {customer.address && (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <MapPin className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate max-w-[150px]" title={customer.address}>{customer.address}</span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4 hidden md:table-cell text-sm text-foreground">
-                      {customer.subscriptionPlan}
-                      <span className="block text-xs text-muted-foreground">
-                        {(() => {
-                          const end = new Date(customer.subscriptionEnd);
-                          const now = new Date();
-                          const days = differenceInDays(end, now);
-                          if (days < 0) return "Expired";
-                          const months = differenceInCalendarMonths(end, now);
-                          if (months > 0) return `${months}mo left`;
-                          return `${days}d left`;
-                        })()}
-                      </span>
-                    </td>
-                    <td className="p-4 hidden sm:table-cell text-sm text-muted-foreground">{customer.subscriptionEnd}</td>
-                    <td className="p-4">
-                      <Badge
-                        className={
-                          customer.status === 'active' ? 'bg-primary/10 text-primary border-primary/20' :
-                            customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20' :
-                            customer.status === 'archived' ? 'bg-secondary/40 text-muted-foreground border-border' :
-                               'bg-destructive/10 text-destructive border-destructive/20'
-                        }
-                      >
-                        {customer.status}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-right print:hidden">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setReceiptTarget(customer)} className="gap-2">
-                            <FileText className="h-4 w-4" /> E-Receipt
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setUpgradeTarget(customer)} className="gap-2">
-                            <ArrowUpCircle className="h-4 w-4" /> Upgrade Plan
-                          </DropdownMenuItem>
-                          {customer.status === "expired" && (
-                            <DropdownMenuItem onClick={() => setArchiveTarget(customer)} className="gap-2">
-                              <ArchiveRestore className="h-4 w-4" /> Archive
-                            </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => setDeleteTarget(customer)} className="gap-2 text-destructive focus:text-destructive">
-                            <Trash2 className="h-4 w-4" /> Delete
+                          {customer.address && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              <span className="truncate max-w-[150px]" title={customer.address}>{customer.address}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4 hidden sm:table-cell">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                        {customer.phone}
+                      </div>
+                      {customer.gender && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <User className="h-3.5 w-3.5 shrink-0" />
+                          {customer.gender}
+                        </div>
+                      )}
+                      {customer.address && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate max-w-[150px]" title={customer.address}>{customer.address}</span>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-4 hidden md:table-cell text-sm text-foreground">
+                    {customer.subscriptionPlan}
+                    <span className="block text-xs text-muted-foreground">
+                      {(() => {
+                        const end = new Date(customer.subscriptionEnd);
+                        const now = new Date();
+                        const days = differenceInDays(end, now);
+                        if (days < 0) return "Expired";
+                        const months = differenceInCalendarMonths(end, now);
+                        if (months > 0) return `${months}mo left`;
+                        return `${days}d left`;
+                      })()}
+                    </span>
+                  </td>
+                  <td className="p-4 hidden sm:table-cell text-sm text-muted-foreground">{customer.subscriptionEnd}</td>
+                  <td className="p-4">
+                    <Badge
+                      className={
+                        customer.status === 'active' ? 'bg-primary/80 text-primary-foreground border-primary/20 backdrop-blur-sm' :
+                          customer.status === 'expiring' ? 'bg-warning/80 text-warning-foreground border-warning/20 backdrop-blur-sm' :
+                            customer.status === 'archived' ? 'bg-secondary/80 text-secondary-foreground border-border backdrop-blur-sm' :
+                              'bg-destructive/80 text-destructive-foreground border-destructive/20 backdrop-blur-sm'
+                      }
+                    >
+                      {customer.status}
+                    </Badge>
+                  </td>
+                  <td className="p-4 text-right print:hidden">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setReceiptTarget(customer)} className="gap-2">
+                          <FileText className="h-4 w-4" /> E-Receipt
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setUpgradeTarget(customer)} className="gap-2">
+                          <ArrowUpCircle className="h-4 w-4" /> Upgrade Plan
+                        </DropdownMenuItem>
+                        {customer.status === "expired" && (
+                          <DropdownMenuItem onClick={() => setArchiveTarget(customer)} className="gap-2">
+                            <ArchiveRestore className="h-4 w-4" /> Archive
                           </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {filtered.length === 0 && (
-            <div className="p-12 text-center text-muted-foreground">
-              <p className="text-sm">No customers found</p>
-            </div>
-          )}
+                        )}
+                        <DropdownMenuItem onClick={() => setDeleteTarget(customer)} className="gap-2 text-destructive focus:text-destructive">
+                          <Trash2 className="h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+        {filtered.length === 0 && (
+          <div className="p-12 text-center text-muted-foreground">
+            <p className="text-sm">No customers found</p>
+          </div>
+        )}
+      </div>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>

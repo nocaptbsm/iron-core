@@ -52,7 +52,7 @@ export default function Settings() {
         <p className="text-muted-foreground text-sm mt-1">Manage your gym profile and contact details.</p>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+      <div className="glass-panel border-white/10 rounded-xl p-6 shadow-sm">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

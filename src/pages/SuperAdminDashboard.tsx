@@ -52,7 +52,7 @@ const SuperAdminDashboard = () => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
             ) : (
-                <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
+                <div className="glass-panel border border-white/10 rounded-xl overflow-hidden divide-y divide-white/10">
                     {gyms.map((gym, i) => (
                         <motion.div
                             key={gym.user_id}

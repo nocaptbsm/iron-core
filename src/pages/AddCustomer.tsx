@@ -232,7 +232,7 @@ const AddCustomer = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         onSubmit={handleSubmit}
-        className="rounded-xl border border-border bg-card p-6 space-y-5"
+        className="glass-panel rounded-xl border border-white/10 p-6 space-y-5"
       >
         <div className="flex flex-col items-center gap-3">
           {photo ? (

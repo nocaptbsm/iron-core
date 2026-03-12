@@ -64,7 +64,7 @@ const Subscriptions = () => {
         />
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="glass-panel rounded-xl border border-white/10 p-5">
         {filtered.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">No customers found</p>
@@ -106,10 +106,10 @@ const Subscriptions = () => {
                   </div>
                   <Badge
                     className={
-                      customer.status === 'active' ? 'bg-primary/10 text-primary border-primary/20' :
-                      customer.status === 'expiring' ? 'bg-warning/10 text-warning border-warning/20' :
-                      customer.status === 'archived' ? 'bg-secondary/40 text-muted-foreground border-border' :
-                      'bg-destructive/10 text-destructive border-destructive/20'
+                      customer.status === 'active' ? 'bg-primary/80 text-primary-foreground border-primary/20 backdrop-blur-sm' :
+                      customer.status === 'expiring' ? 'bg-warning/80 text-warning-foreground border-warning/20 backdrop-blur-sm' :
+                      customer.status === 'archived' ? 'bg-secondary/80 text-secondary-foreground border-border backdrop-blur-sm' :
+                      'bg-destructive/80 text-destructive-foreground border-destructive/20 backdrop-blur-sm'
                     }
                   >
                     {customer.status}
