@@ -71,6 +71,25 @@ const planDurations: Record<string, number> = {
   "12 months": 12,
 };
 
+const checkRateLimit = (action: string, limit: number = 10, windowMs: number = 60000): boolean => {
+  const now = Date.now();
+  const key = `rl_${action}`;
+  try {
+    const raw = localStorage.getItem(key);
+    let record = raw ? JSON.parse(raw) : { count: 0, resetAt: now + windowMs };
+    if (now > record.resetAt) {
+      record = { count: 1, resetAt: now + windowMs };
+    } else {
+      if (record.count >= limit) return true;
+      record.count++;
+    }
+    localStorage.setItem(key, JSON.stringify(record));
+    return false;
+  } catch(e) {
+    return false; // Safely fail open
+  }
+};
+
 // Utility to convert Base64 VAPID key to Uint8Array
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -356,6 +375,10 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   const addCustomer = async (customer: Omit<Customer, "id" | "status">) => {
     if (!session?.user) throw new Error("Must be logged in");
 
+    if (checkRateLimit("addCustomer", 5, 60000)) {
+      throw new Error("Too many requests. Please try again later.");
+    }
+
     let finalPhotoUrl = customer.photo || null;
 
     if (finalPhotoUrl && finalPhotoUrl.startsWith("data:image")) {
@@ -426,7 +449,14 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteCustomer = async (id: string) => {
-    const { error } = await supabase.from("customers").delete().eq("id", id);
+    const currentUserId = selectedGymId || session?.user?.id;
+    if (!currentUserId) return;
+    if (checkRateLimit("deleteCustomer", 10, 60000)) {
+      toast.error("Too many requests. Please wait a minute.");
+      return;
+    }
+
+    const { error } = await supabase.from("customers").delete().eq("id", id).eq("user_id", currentUserId);
     if (!error) {
       setCustomers((prev) => prev.filter((c) => c.id !== id));
       setPayments((prev) => prev.filter((p) => p.customerId !== id));
@@ -436,10 +466,18 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const archiveCustomer = async (id: string) => {
+    const currentUserId = selectedGymId || session?.user?.id;
+    if (!currentUserId) return;
+    if (checkRateLimit("archiveCustomer", 10, 60000)) {
+      toast.error("Too many requests. Please wait a minute.");
+      return;
+    }
+
     const { data, error } = await supabase
       .from("customers")
       .update({ is_archived: true, status: "archived" })
       .eq("id", id)
+      .eq("user_id", currentUserId)
       .select()
       .single();
 
@@ -456,6 +494,13 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     const c = customers.find(c => c.id === id);
     if (!c) return;
 
+    const currentUserId = selectedGymId || session?.user?.id;
+    if (!currentUserId) return;
+    if (checkRateLimit("upgradeCustomer", 10, 60000)) {
+      toast.error("Too many requests. Please wait a minute.");
+      return;
+    }
+
     const months = planDurations[plan] || 1;
     const baseDate = new Date(c.subscriptionEnd) > new Date() ? new Date(c.subscriptionEnd) : new Date();
     const newEnd = format(addMonths(baseDate, months), "yyyy-MM-dd");
@@ -469,7 +514,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       status: computeStatus(newEnd, false)
     };
 
-    const { data, error } = await supabase.from("customers").update(payload).eq("id", id).select().single();
+    const { data, error } = await supabase.from("customers").update(payload).eq("id", id).eq("user_id", currentUserId).select().single();
 
     if (error) {
       console.error("Error upgrading:", error);
@@ -483,6 +528,10 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
   const addPayment = async (payment: Omit<Payment, "id">) => {
     if (!session?.user) throw new Error("Must be logged in");
+
+    if (checkRateLimit("addPayment", 10, 60000)) {
+      throw new Error("Too many requests. Please try again later.");
+    }
 
     const customer = customers.find((c) => c.id === payment.customerId);
     const payload = {
