@@ -14,6 +14,8 @@ import NotFound from "./pages/NotFound";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import DashboardLayout from "./components/DashboardLayout";
 import Settings from "./pages/Settings";
+import StaffManagement from "./pages/StaffManagement";
+import Expenses from "./pages/Expenses";
 
 const ProtectedRoute = ({ children, requireGym = false }: { children: JSX.Element, requireGym?: boolean }) => {
   const { session, loading, role, selectedGymId } = useGym();
@@ -49,6 +51,8 @@ const AppRoutes = () => {
         <Route path="payments" element={<ProtectedRoute requireGym><Payments /></ProtectedRoute>} />
         <Route path="subscriptions" element={<ProtectedRoute requireGym><Subscriptions /></ProtectedRoute>} />
         <Route path="reminders" element={<ProtectedRoute requireGym><Reminders /></ProtectedRoute>} />
+        <Route path="staff" element={<ProtectedRoute requireGym><StaffManagement /></ProtectedRoute>} />
+        <Route path="expenses" element={<ProtectedRoute requireGym><Expenses /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute requireGym><Settings /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<NotFound />} />
@@ -57,15 +61,15 @@ const AppRoutes = () => {
 };
 
 const App = () => (
-  <GymProvider>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+  <BrowserRouter>
+    <GymProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
         <AppRoutes />
-      </BrowserRouter>
-    </TooltipProvider>
-  </GymProvider>
+      </TooltipProvider>
+    </GymProvider>
+  </BrowserRouter>
 );
 
 export default App;

@@ -26,7 +26,13 @@ const Customers = () => {
   const [upgradeTarget, setUpgradeTarget] = useState<Customer | null>(null);
   const [detailsTarget, setDetailsTarget] = useState<Customer | null>(null);
   const [receiptTarget, setReceiptTarget] = useState<Customer | null>(null);
-  const [gymName, setGymName] = useState("");
+  const [gymName, setGymName] = useState(() => {
+    try {
+      const saved = localStorage.getItem("gym_settings");
+      if (saved) return JSON.parse(saved).gymName || "";
+    } catch { return ""; }
+    return "";
+  });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const filtered = customers.filter(
@@ -46,7 +52,7 @@ const Customers = () => {
       const doc = new jsPDF();
       const date = new Date().toLocaleDateString();
 
-      let gymSettings = { gymName: "GYM REPORT", address: "", phone: "", proprietor: "", gymLogo: "" };
+      let gymSettings = { gymName: "GYM REPORT", address: "", phone: "", proprietor: "" };
       try {
         const saved = localStorage.getItem("gym_settings");
         if (saved) {
@@ -54,19 +60,6 @@ const Customers = () => {
         }
       } catch (e) {
         console.error(e);
-      }
-
-      if (gymSettings.gymLogo) {
-        try {
-          const formatMatch = gymSettings.gymLogo.match(/^data:image\/(\w+);base64,/);
-          const format = formatMatch ? formatMatch[1].toUpperCase() : "PNG";
-          const imgProps = doc.getImageProperties(gymSettings.gymLogo);
-          const width = 25;
-          const height = width * (imgProps.height / imgProps.width);
-          doc.addImage(gymSettings.gymLogo, format, 15, 10, width, height);
-        } catch (error) {
-          console.error("Could not add gym logo to PDF", error);
-        }
       }
 
       // Header
@@ -114,9 +107,6 @@ const Customers = () => {
         headStyles: { fillColor: [41, 128, 185] },
       });
 
-      doc.autoPrint();
-      const blobURL = doc.output('bloburl');
-      window.open(blobURL, '_blank');
       doc.save(`Customers_Report_${date.replace(/\//g, '-')}.pdf`);
       toast.success("Customers report downloaded");
     } catch (error) {
@@ -140,18 +130,17 @@ Date: ${date}
 
 *Customer Details:*
 Name: ${receiptTarget.fullName}
-Phone: ${receiptTarget.phone}
 
 *Membership Info:*
 Plan: ${receiptTarget.subscriptionPlan}
-Status: ${receiptTarget.status.toUpperCase()}
+Expires: ${receiptTarget.subscriptionEnd}
 Expires On: ${receiptTarget.subscriptionEnd}
 
 Thank you for your business!
     `.trim();
 
     // Clean phone number (remove any non-digits)
-    const cleanPhone = receiptTarget.phone.replace(/\\D/g, "");
+    const cleanPhone = receiptTarget.phone.replace(/\D/g, "");
 
     // Check if phone number is valid enough to open WhatsApp
     if (cleanPhone.length >= 10) {

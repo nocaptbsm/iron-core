@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Upload, X, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { useGym } from "@/context/GymContext";
 
 export default function Settings() {

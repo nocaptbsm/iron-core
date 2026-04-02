@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,14 @@ const AddCustomer = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
 
   const compressImage = (dataUrl: string): Promise<string> => {
     return new Promise((resolve) => {
@@ -158,8 +166,8 @@ const AddCustomer = () => {
       return;
     }
 
-    if (form.phone.replace(/\D/g, "").length !== 12) { // 91 + 10 digits = 12
-      toast.error("Please enter a valid 10-digit phone number");
+    if (form.phone.replace(/\D/g, "").length < 10) {
+      toast.error("Please enter a valid phone number (min 10 digits)");
       return;
     }
 
@@ -205,12 +213,12 @@ const AddCustomer = () => {
       const planName = form.plan === "others" ? `${form.customDays} days` : form.plan;
       const message = `Hello ${form.fullName},\n\nWelcome to ${gymName}! Your subscription for ${planName} has been registered successfully.\nStart Date: ${form.joiningDate}\nEnd Date: ${expiryDate}\n\nThank you!`;
 
-      toast.success("Customer added successfully!");
-
-      // Open WhatsApp in a new tab
-      if (cleanPhone) {
-        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
-      }
+      toast.success("Customer added successfully!", {
+        action: cleanPhone ? {
+          label: "Send WhatsApp Welcome",
+          onClick: () => window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank")
+        } : undefined
+      });
 
       navigate("/customers");
     } catch (error: unknown) {
@@ -273,7 +281,6 @@ const AddCustomer = () => {
                   setForm({ ...form, phone: val ? `+91 ${val}` : "" });
                 }}
                 className="bg-secondary/50 border-border rounded-l-none"
-                maxLength={10}
               />
             </div>
           </div>

@@ -11,7 +11,7 @@ const Dashboard = () => {
   const { customers, payments, getStats } = useGym();
   const stats = getStats();
 
-  const recentCustomers = customers.slice(0, 5);
+  const recentCustomers = [...customers].sort((a, b) => new Date(b.joiningDate).getTime() - new Date(a.joiningDate).getTime()).slice(0, 5);
   const recentPayments = payments.slice(0, 5);
 
   return (

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useGym } from "@/context/GymContext";
-import { Building2, Search, ArrowRight } from "lucide-react";
+import { Building2, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { Input } from "@/components/ui/input";
+
 import { Button } from "@/components/ui/button";
 
 interface GymInfo {

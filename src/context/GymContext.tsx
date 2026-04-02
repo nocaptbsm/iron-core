@@ -1,5 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Customer, Payment } from "@/lib/mockData";
+import { Customer, Payment, Staff, Expense } from "@/lib/mockData";
 import { differenceInDays, addMonths, format } from "date-fns";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -8,12 +9,16 @@ import { Session, User } from "@supabase/supabase-js";
 interface GymContextType {
   customers: Customer[];
   payments: Payment[];
+  staff: Staff[];
+  expenses: Expense[];
   session: Session | null;
   role: "admin" | "super_admin" | null;
   selectedGymId: string | null;
   setSelectedGymId: (id: string | null) => void;
   addCustomer: (customer: Omit<Customer, "id" | "status" | "isArchived">) => Promise<void>;
   addPayment: (payment: Omit<Payment, "id">) => Promise<void>;
+  addStaff: (staff: Omit<Staff, "id">) => Promise<void>;
+  addExpense: (expense: Omit<Expense, "id">) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
   archiveCustomer: (id: string) => Promise<void>;
   upgradeCustomer: (id: string, plan: Customer["subscriptionPlan"]) => Promise<void>;
@@ -64,6 +69,29 @@ const normalizePayment = (payment: any): Payment => ({
   mode: payment.mode || "",
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const normalizeStaff = (staff: any): Staff => ({
+  id: staff.id,
+  fullName: staff.full_name || staff.fullName || "",
+  role: staff.role || "",
+  phone: staff.phone || "",
+  salary: Number(staff.salary),
+  joiningDate: staff.joining_date || staff.joiningDate || "",
+  address: staff.address || undefined,
+  idProof: staff.id_proof || staff.idProof || undefined,
+  photo: staff.photo || undefined,
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const normalizeExpense = (expense: any): Expense => ({
+  id: expense.id,
+  category: expense.category || "",
+  amount: Number(expense.amount),
+  date: expense.date || "",
+  description: expense.description || undefined,
+  staffId: expense.staff_id || expense.staffId || undefined,
+});
+
 const planDurations: Record<string, number> = {
   "1 month": 1,
   "3 months": 3,
@@ -109,6 +137,8 @@ function urlBase64ToUint8Array(base64String: string) {
 export const GymProvider = ({ children }: { children: ReactNode }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<"admin" | "super_admin" | null>(null);
   const [selectedGymId, setSelectedGymId] = useState<string | null>(null);
@@ -125,7 +155,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase
         .from('approved_emails')
         .select('email, role')
-        .ilike('email', user.email)
+        .eq('email', user.email.toLowerCase())
         .limit(1);
 
       if (error || !data || data.length === 0) {
@@ -157,18 +187,22 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     try {
       const targetUserId = selectedGymId || userId;
 
-      let timeoutId: ReturnType<typeof setTimeout>;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const timeoutPromise = new Promise<any>((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error("Database fetch timed out (>15s). Please check your connection.")), 15000);
       });
 
-      const fetchCustomers = supabase.from("customers").select("*").eq("user_id", targetUserId).order("joiningDate", { ascending: false });
-      const fetchPayments = supabase.from("payments").select("*").eq("user_id", targetUserId).order("paymentDate", { ascending: false });
+      const fetchCustomers = supabase.from("customers").select("*").eq("user_id", targetUserId).order("created_at", { ascending: false });
+      const fetchPayments = supabase.from("payments").select("*").eq("user_id", targetUserId).order("created_at", { ascending: false });
+      const fetchStaffData = supabase.from("staff").select("*").eq("user_id", targetUserId).order("created_at", { ascending: false });
+      const fetchExpensesData = supabase.from("expenses").select("*").eq("user_id", targetUserId).order("created_at", { ascending: false });
 
-      const [cRes, pRes] = await Promise.all([
+      const [cRes, pRes, sRes, eRes] = await Promise.all([
         Promise.race([fetchCustomers, timeoutPromise]),
-        Promise.race([fetchPayments, timeoutPromise])
+        Promise.race([fetchPayments, timeoutPromise]),
+        Promise.race([fetchStaffData, timeoutPromise]),
+        Promise.race([fetchExpensesData, timeoutPromise])
       ]);
 
       clearTimeout(timeoutId!);
@@ -178,9 +212,28 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
       setCustomers((cRes.data || []).map(normalizeCustomer));
       setPayments((pRes.data || []).map(normalizePayment));
+
+      if (sRes.error) {
+        console.error("Error fetching staff:", sRes.error);
+        setStaff([]);
+      } else {
+        setStaff((sRes.data || []).map(normalizeStaff));
+      }
+
+      if (eRes.error) {
+        console.error("Error fetching expenses:", eRes.error);
+        setExpenses([]);
+      } else {
+        setExpenses((eRes.data || []).map(normalizeExpense));
+      }
+
     } catch (error: unknown) {
       console.error("Error fetching from Supabase:", error);
-      const msg = error instanceof Error ? error.message : String(error || "Unknown network error");
+      const msg = error instanceof Error 
+        ? error.message 
+        : (typeof error === 'object' && error !== null && 'message' in error) 
+          ? String((error as Record<string, unknown>).message) 
+          : String(error || "Unknown network error");
       toast.error(`Sync error: ${msg}`);
     } finally {
       setLoading(false);
@@ -191,11 +244,10 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker registered');
 
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-          const vapidPublicKey = "BF3oIBj-i7Afmo4ClXqUNHRLX9gaxmasPW2boRON94UEDqFxkeHycUxwNvL1yrHcvdbfdspvUcLmtl7kLnpw1No";
+          const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || "BF3oIBj-i7Afmo4ClXqUNHRLX9gaxmasPW2boRON94UEDqFxkeHycUxwNvL1yrHcvdbfdspvUcLmtl7kLnpw1No";
 
           const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
 
@@ -216,7 +268,6 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
               p256dh: subData.keys.p256dh,
               auth: subData.keys.auth
             }], { onConflict: 'endpoint' });
-            console.log("Push subscription saved to Supabase");
           }
         }
       } catch (error) {
@@ -239,13 +290,13 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedCustomers = cList.map((c: any) => ({
         id: c.id,
-        fullName: c.fullName,
+        full_name: c.fullName,
         phone: c.phone,
-        joiningDate: c.joiningDate,
-        subscriptionPlan: c.subscriptionPlan,
-        subscriptionStart: c.subscriptionStart,
-        subscriptionEnd: c.subscriptionEnd,
-        isArchived: c.isArchived || false,
+        joining_date: c.joiningDate,
+        subscription_plan: c.subscriptionPlan,
+        subscription_start: c.subscriptionStart,
+        subscription_end: c.subscriptionEnd,
+        is_archived: c.isArchived || false,
         status: computeStatus(c.subscriptionEnd, c.isArchived),
         photo: c.photo || null,
         address: c.address || null,
@@ -256,9 +307,9 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedPayments = pList.map((p: any) => ({
         id: p.id,
-        customerId: p.customerId,
-        customerName: p.customerName || "Unknown",
-        paymentDate: p.paymentDate,
+        customer_id: p.customerId,
+        customer_name: p.customerName || "Unknown",
+        payment_date: p.paymentDate,
         amount: Number(p.amount),
         plan: p.plan,
         mode: p.mode,
@@ -274,7 +325,6 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
       window.localStorage.removeItem("gym_customers");
       window.localStorage.removeItem("gym_payments");
-      console.log("Migration successful");
       return true;
     } catch (error) {
       console.error("Migration failed:", error);
@@ -324,6 +374,8 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
           setSession(null);
           setCustomers([]);
           setPayments([]);
+          setStaff([]);
+          setExpenses([]);
           return;
         }
 
@@ -372,7 +424,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     setSelectedGymId(null);
   };
 
-  const addCustomer = async (customer: Omit<Customer, "id" | "status">) => {
+  const addCustomer = async (customer: Omit<Customer, "id" | "status" | "isArchived">) => {
     if (!session?.user) throw new Error("Must be logged in");
 
     if (checkRateLimit("addCustomer", 5, 60000)) {
@@ -424,12 +476,12 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const payload = {
-      fullName: customer.fullName,
+      full_name: customer.fullName,
       phone: customer.phone,
-      joiningDate: customer.joiningDate,
-      subscriptionPlan: customer.subscriptionPlan,
-      subscriptionStart: customer.subscriptionStart,
-      subscriptionEnd: customer.subscriptionEnd,
+      joining_date: customer.joiningDate,
+      subscription_plan: customer.subscriptionPlan,
+      subscription_start: customer.subscriptionStart,
+      subscription_end: customer.subscriptionEnd,
       is_archived: false,
       status: computeStatus(customer.subscriptionEnd, false),
       photo: finalPhotoUrl,
@@ -462,6 +514,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       setPayments((prev) => prev.filter((p) => p.customerId !== id));
     } else {
       console.error("Error deleting customer:", error);
+      toast.error("Failed to delete customer");
     }
   };
 
@@ -487,6 +540,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       );
     } else {
       console.error("Error archiving customer:", error);
+      toast.error("Failed to archive customer");
     }
   };
 
@@ -507,9 +561,9 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     const newStart = format(new Date(), "yyyy-MM-dd");
 
     const payload = {
-      subscriptionPlan: plan,
-      subscriptionStart: newStart,
-      subscriptionEnd: newEnd,
+      subscription_plan: plan,
+      subscription_start: newStart,
+      subscription_end: newEnd,
       is_archived: false,
       status: computeStatus(newEnd, false)
     };
@@ -535,9 +589,9 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
     const customer = customers.find((c) => c.id === payment.customerId);
     const payload = {
-      customerId: payment.customerId,
-      customerName: payment.customerName || customer?.fullName || "Unknown",
-      paymentDate: payment.paymentDate,
+      customer_id: payment.customerId,
+      customer_name: payment.customerName || customer?.fullName || "Unknown",
+      payment_date: payment.paymentDate,
       amount: Number(payment.amount),
       plan: payment.plan,
       mode: payment.mode,
@@ -551,6 +605,86 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     }
     if (data) {
       setPayments((prev) => [normalizePayment(data), ...prev]);
+    }
+  };
+
+  const addStaff = async (staffMember: Omit<Staff, "id">) => {
+    if (!session?.user) throw new Error("Must be logged in");
+
+    let finalPhotoUrl = staffMember.photo || null;
+
+    if (finalPhotoUrl && finalPhotoUrl.startsWith("data:image")) {
+      try {
+        const arr = finalPhotoUrl.split(",");
+        const mime = arr[0].match(/:(.*?);/)?.[1] || "image/jpeg";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+
+        const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+        const fileName = `staff_${session.user.id}_${Date.now()}.${ext}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(fileName, blob, { contentType: blob.type });
+
+        if (uploadError) throw new Error("Failed to upload photo: " + uploadError.message);
+        
+        if (uploadData) {
+          const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(fileName);
+          finalPhotoUrl = publicUrl;
+        }
+      } catch (err) {
+        console.error("Image processing error:", err);
+        throw new Error("Failed to process profile photo.");
+      }
+    }
+
+    const payload = {
+      full_name: staffMember.fullName,
+      role: staffMember.role,
+      phone: staffMember.phone,
+      salary: Number(staffMember.salary),
+      joining_date: staffMember.joiningDate,
+      address: staffMember.address || null,
+      id_proof: staffMember.idProof || null,
+      photo: finalPhotoUrl,
+      user_id: selectedGymId || session.user.id
+    };
+
+    const { data, error } = await supabase.from("staff").insert([payload]).select().single();
+    if (error) {
+      console.error("Error adding staff:", error);
+      throw new Error(error.message || "Database insert failed");
+    }
+    if (data) {
+      setStaff((prev) => [normalizeStaff(data), ...prev]);
+    }
+  };
+
+  const addExpense = async (expense: Omit<Expense, "id">) => {
+    if (!session?.user) throw new Error("Must be logged in");
+
+    const payload = {
+      category: expense.category,
+      amount: Number(expense.amount),
+      date: expense.date,
+      description: expense.description || null,
+      staff_id: expense.staffId || null,
+      user_id: selectedGymId || session.user.id
+    };
+
+    const { data, error } = await supabase.from("expenses").insert([payload]).select().single();
+    if (error) {
+      console.error("Error adding expense:", error);
+      throw error;
+    }
+    if (data) {
+      setExpenses((prev) => [normalizeExpense(data), ...prev]);
     }
   };
 
@@ -569,9 +703,13 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     <GymContext.Provider value={{
       customers,
       payments,
+      staff,
+      expenses,
       session,
       addCustomer,
       addPayment,
+      addStaff,
+      addExpense,
       deleteCustomer,
       archiveCustomer,
       upgradeCustomer,

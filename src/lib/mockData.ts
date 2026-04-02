@@ -23,15 +23,27 @@ export interface Payment {
   mode: 'Cash' | 'UPI' | 'Card';
 }
 
-export const mockCustomers: Customer[] = [];
+export interface Staff {
+  id: string;
+  fullName: string;
+  role: string;
+  phone: string;
+  salary: number;
+  joiningDate: string;
+  address?: string;
+  idProof?: string;
+  photo?: string;
+}
 
-export const mockPayments: Payment[] = [];
+export type ExpenseCategory = 'Electricity' | "Owner's" | 'Wifi' | 'EMI' | 'Rent' | 'Salary' | 'Software' | 'Miscellaneous';
 
-export const getStats = () => {
-  const total = mockCustomers.length;
-  const active = mockCustomers.filter(c => c.status === 'active').length;
-  const expiring = mockCustomers.filter(c => c.status === 'expiring').length;
-  const expired = mockCustomers.filter(c => c.status === 'expired').length;
-  const revenue = mockPayments.reduce((sum, p) => sum + p.amount, 0);
-  return { total, active, expiring, expired, revenue };
-};
+export interface Expense {
+  id: string;
+  category: ExpenseCategory;
+  amount: number;
+  date: string;
+  description?: string;
+  staffId?: string; // Links to Staff member if category is 'Salary'
+}
+
+

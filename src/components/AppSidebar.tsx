@@ -8,6 +8,8 @@ import {
   Dumbbell,
   Building2,
   Settings,
+  Wallet,
+  UsersIcon,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -33,6 +35,8 @@ const mainItems = [
   { title: "Payments", url: "/payments", icon: CreditCard },
   { title: "Subscriptions", url: "/subscriptions", icon: CalendarCheck },
   { title: "Reminders", url: "/reminders", icon: Bell },
+  { title: "Staff Management", url: "/staff", icon: UsersIcon },
+  { title: "Expenses", url: "/expenses", icon: Wallet },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
@@ -64,7 +68,9 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-muted-foreground/60 text-[10px] uppercase tracking-widest">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
+              {mainItems
+                .filter((item) => role !== 'super_admin' || selectedGymId || item.url === '/')
+                .map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

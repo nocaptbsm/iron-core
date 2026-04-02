@@ -92,7 +92,7 @@ export function CustomerDetailsDialog({ customer, onClose }: CustomerDetailsDial
                           <p className="font-medium text-foreground">{payment.plan}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{payment.paymentDate} • {payment.mode}</p>
                         </div>
-                        <p className="font-bold text-primary text-base">₹{payment.amount}</p>
+                        <p className="font-bold text-primary text-base">₹{payment.amount.toLocaleString('en-IN')}</p>
                       </div>
                     ))
                   ) : (

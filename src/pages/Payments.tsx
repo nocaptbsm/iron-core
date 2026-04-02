@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MoreHorizontal, FileText, Printer, Send } from "lucide-react";
+import { MoreHorizontal, Send, Printer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -34,7 +34,7 @@ const Payments = () => {
       const doc = new jsPDF();
       const date = new Date().toLocaleDateString();
 
-      let gymSettings = { gymName: "GYM REPORT", address: "", phone: "", proprietor: "", gymLogo: "" };
+      let gymSettings = { gymName: "GYM REPORT", address: "", phone: "", proprietor: "" };
       try {
         const saved = localStorage.getItem("gym_settings");
         if (saved) {
@@ -42,19 +42,6 @@ const Payments = () => {
         }
       } catch (e) {
         console.error(e);
-      }
-
-      if (gymSettings.gymLogo) {
-        try {
-          const formatMatch = gymSettings.gymLogo.match(/^data:image\/(\w+);base64,/);
-          const format = formatMatch ? formatMatch[1].toUpperCase() : "PNG";
-          const imgProps = doc.getImageProperties(gymSettings.gymLogo);
-          const width = 25;
-          const height = width * (imgProps.height / imgProps.width);
-          doc.addImage(gymSettings.gymLogo, format, 15, 10, width, height);
-        } catch (error) {
-          console.error("Could not add gym logo to PDF", error);
-        }
       }
 
       doc.setFontSize(24);
