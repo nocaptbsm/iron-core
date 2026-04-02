@@ -41,7 +41,7 @@ const mainItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const { signOut, role, selectedGymId, setSelectedGymId } = useGym();
   const collapsed = state === "collapsed";
   const location = useLocation();
@@ -76,6 +76,9 @@ export function AppSidebar() {
                     asChild
                     isActive={isActive(item.url)}
                     tooltip={item.title}
+                    onClick={() => {
+                      if (isMobile) setOpenMobile(false);
+                    }}
                   >
                     <NavLink
                       to={item.url}
@@ -99,7 +102,10 @@ export function AppSidebar() {
           <div className="flex flex-col gap-2">
             {role === 'super_admin' && selectedGymId && (
               <button
-                onClick={() => setSelectedGymId(null)}
+                onClick={() => {
+                  setSelectedGymId(null);
+                  if (isMobile) setOpenMobile(false);
+                }}
                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary/10 text-primary border border-primary/20 p-2 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors mb-2"
               >
                 <Building2 className="w-4 h-4" />
