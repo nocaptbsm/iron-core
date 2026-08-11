@@ -258,3 +258,105 @@ CREATE POLICY "Authenticated Users can update avatars" ON storage.objects
 -- ================================================================
 -- DONE. All tables, columns, and policies are now in sync.
 -- ================================================================
+
+-- ================================================================
+-- SECTION 10: user_links — Shared Gym Access
+-- Allows two or more emails to share the same gym data.
+-- ================================================================
+CREATE TABLE IF NOT EXISTS public.user_links (
+  user_id        UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  target_user_id UUID NOT NULL    REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+ALTER TABLE public.user_links ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Read own link" ON public.user_links;
+CREATE POLICY "Read own link" ON public.user_links
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Update RLS on all 4 data tables to honour user_links
+DROP POLICY IF EXISTS "Manage customers" ON public.customers;
+CREATE POLICY "Manage customers" ON public.customers
+  FOR ALL TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR user_id = (SELECT target_user_id FROM public.user_links WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.approved_emails
+      WHERE email = COALESCE(auth.jwt() ->> 'email', '') AND role = 'super_admin'
+    )
+  )
+  WITH CHECK (
+    user_id = auth.uid()
+    OR user_id = (SELECT target_user_id FROM public.user_links WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.approved_emails
+      WHERE email = COALESCE(auth.jwt() ->> 'email', '') AND role = 'super_admin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Manage payments" ON public.payments;
+CREATE POLICY "Manage payments" ON public.payments
+  FOR ALL TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR user_id = (SELECT target_user_id FROM public.user_links WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.approved_emails
+      WHERE email = COALESCE(auth.jwt() ->> 'email', '') AND role = 'super_admin'
+    )
+  )
+  WITH CHECK (
+    user_id = auth.uid()
+    OR user_id = (SELECT target_user_id FROM public.user_links WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.approved_emails
+      WHERE email = COALESCE(auth.jwt() ->> 'email', '') AND role = 'super_admin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Manage staff" ON public.staff;
+CREATE POLICY "Manage staff" ON public.staff
+  FOR ALL TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR user_id = (SELECT target_user_id FROM public.user_links WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.approved_emails
+      WHERE email = COALESCE(auth.jwt() ->> 'email', '') AND role = 'super_admin'
+    )
+  )
+  WITH CHECK (
+    user_id = auth.uid()
+    OR user_id = (SELECT target_user_id FROM public.user_links WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.approved_emails
+      WHERE email = COALESCE(auth.jwt() ->> 'email', '') AND role = 'super_admin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Manage expenses" ON public.expenses;
+CREATE POLICY "Manage expenses" ON public.expenses
+  FOR ALL TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR user_id = (SELECT target_user_id FROM public.user_links WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.approved_emails
+      WHERE email = COALESCE(auth.jwt() ->> 'email', '') AND role = 'super_admin'
+    )
+  )
+  WITH CHECK (
+    user_id = auth.uid()
+    OR user_id = (SELECT target_user_id FROM public.user_links WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.approved_emails
+      WHERE email = COALESCE(auth.jwt() ->> 'email', '') AND role = 'super_admin'
+    )
+  );
+
+-- ================================================================
+-- To link two emails (run once per pair):
+--   INSERT INTO public.user_links (user_id, target_user_id)
+--   VALUES ('<secondary-email-uuid>', '<primary-owner-uuid>');
+-- Find UUIDs: SELECT id, email FROM auth.users WHERE email IN (...);
+-- ================================================================

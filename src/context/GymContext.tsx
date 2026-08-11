@@ -142,7 +142,24 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<"admin" | "super_admin" | null>(null);
   const [selectedGymId, setSelectedGymId] = useState<string | null>(null);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Resolves the effective data-owner UUID for a given auth user.
+  // If the user has a row in user_links, their data is owned by target_user_id.
+  // Otherwise they are their own owner (primary account).
+  const resolveTargetUserId = async (authUserId: string): Promise<string> => {
+    try {
+      const { data } = await supabase
+        .from('user_links')
+        .select('target_user_id')
+        .eq('user_id', authUserId)
+        .maybeSingle();
+      return data?.target_user_id ?? authUserId;
+    } catch {
+      return authUserId; // safe fallback: treat as primary owner
+    }
+  };
 
   const checkApprovalStatus = async (user: User) => {
     if (!user.email) {
@@ -183,9 +200,9 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const fetchSupabaseData = async (userId: string) => {
+  const fetchSupabaseData = async (userId: string, effectiveUserId?: string) => {
     try {
-      const targetUserId = selectedGymId || userId;
+      const targetUserId = selectedGymId || effectiveUserId || userId;
 
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -350,8 +367,10 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
           const isApproved = await checkApprovalStatus(session.user);
           if (isApproved) {
             setSession(session);
+            const effective = await resolveTargetUserId(session.user.id);
+            setResolvedUserId(effective);
             await runMigration(session.user.id);
-            await fetchSupabaseData(session.user.id);
+            await fetchSupabaseData(session.user.id, effective);
             subscribeToPush(session.user.id);
           } else {
             setSession(null);
@@ -372,6 +391,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
         if (event === 'SIGNED_OUT') {
           setSession(null);
+          setResolvedUserId(null);
           setCustomers([]);
           setPayments([]);
           setStaff([]);
@@ -386,10 +406,13 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
           });
           const isApproved = await checkApprovalStatus(currentSession.user);
           if (isApproved) {
-            await fetchSupabaseData(currentSession.user.id);
+            const effective = await resolveTargetUserId(currentSession.user.id);
+            setResolvedUserId(effective);
+            await fetchSupabaseData(currentSession.user.id, effective);
             subscribeToPush(currentSession.user.id);
           } else {
             setSession(null);
+            setResolvedUserId(null);
           }
           setLoading(false);
         } else if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
@@ -413,7 +436,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (session?.user) {
       setLoading(true);
-      fetchSupabaseData(session.user.id);
+      fetchSupabaseData(session.user.id, resolvedUserId ?? undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGymId]);
@@ -487,7 +510,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       photo: finalPhotoUrl,
       address: customer.address || null,
       gender: customer.gender || null,
-      user_id: selectedGymId || session.user.id
+      user_id: selectedGymId || resolvedUserId || session.user.id
     };
 
     const { data, error } = await supabase.from("customers").insert([payload]).select().single();
@@ -595,7 +618,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       amount: Number(payment.amount),
       plan: payment.plan,
       mode: payment.mode,
-      user_id: selectedGymId || session.user.id
+      user_id: selectedGymId || resolvedUserId || session.user.id
     };
 
     const { data, error } = await supabase.from("payments").insert([payload]).select().single();
@@ -653,7 +676,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       address: staffMember.address || null,
       id_proof: staffMember.idProof || null,
       photo: finalPhotoUrl,
-      user_id: selectedGymId || session.user.id
+      user_id: selectedGymId || resolvedUserId || session.user.id
     };
 
     const { data, error } = await supabase.from("staff").insert([payload]).select().single();
@@ -675,7 +698,7 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
       date: expense.date,
       description: expense.description || null,
       staff_id: expense.staffId || null,
-      user_id: selectedGymId || session.user.id
+      user_id: selectedGymId || resolvedUserId || session.user.id
     };
 
     const { data, error } = await supabase.from("expenses").insert([payload]).select().single();
