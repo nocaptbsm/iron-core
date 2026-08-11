@@ -202,7 +202,21 @@ export const GymProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchSupabaseData = async (userId: string, effectiveUserId?: string) => {
     try {
-      const targetUserId = selectedGymId || effectiveUserId || userId;
+      // Start with the base target: super admin's selected gym, or the resolved linked user, or self
+      let targetUserId = selectedGymId || effectiveUserId || userId;
+
+      // If super admin has selected a specific gym, also resolve user_links for that gym.
+      // e.g. markdark is linked to muscleblaster → fetch muscleblaster's data.
+      if (selectedGymId) {
+        const { data: linkData } = await supabase
+          .from('user_links')
+          .select('target_user_id')
+          .eq('user_id', selectedGymId)
+          .maybeSingle();
+        if (linkData?.target_user_id) {
+          targetUserId = linkData.target_user_id;
+        }
+      }
 
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
