@@ -16,13 +16,21 @@ CREATE TABLE IF NOT EXISTS public.user_links (
 );
 
 -- ----------------------------------------------------------------
--- 2. Secure user_links: each user can only read their own row
+-- 2. Secure user_links:
+--    - Regular users can only read their own row
+--    - Super admins can read all rows (needed to resolve links when viewing gyms)
 -- ----------------------------------------------------------------
 ALTER TABLE public.user_links ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Read own link" ON public.user_links;
 CREATE POLICY "Read own link" ON public.user_links
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING (
+    auth.uid() = user_id
+    OR EXISTS (
+      SELECT 1 FROM public.approved_emails
+      WHERE email = COALESCE(auth.jwt() ->> 'email', '') AND role = 'super_admin'
+    )
+  );
 
 -- ----------------------------------------------------------------
 -- 3. Update RLS on all 4 data tables to honour user_links
